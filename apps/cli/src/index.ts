@@ -5,7 +5,7 @@ import prompts from "prompts";
 
 import { MuxoryEngine } from "@muxory/engine";
 import { createMuxoryServer } from "@muxory/server";
-import { inferResourceKind, type JobRequest, type ResourceKind } from "@muxory/shared";
+import { inferResourceKind, isYoutubeUrl, type JobRequest, type ResourceKind } from "@muxory/shared";
 
 import { formatCliError, formatDoctorReport, formatJobResult } from "./format.js";
 import { runWizard } from "./wizard.js";
@@ -146,15 +146,18 @@ async function main() {
   collectCommonOptions(program.command("fetch <url>").description("Fetch a URL into another format"))
     .requiredOption("--to <format>", "Desired output format")
     .option("-o, --output <path>", "Output path")
+    .option("--format <format>", "Output format: text or markdown (default: text)")
     .action(async (url, options) => {
       try {
+        const from: ResourceKind | undefined = isYoutubeUrl(url) ? "youtube-url" : "url";
         await handleJob(
           engine,
           buildRequest(options, {
             input: url,
-            from: "url",
+            from,
             to: options.to as ResourceKind,
-            output: options.output as string | undefined
+            output: options.output as string | undefined,
+            options: options.format ? { format: options.format } : {}
           }),
           { setExitCode: true }
         );

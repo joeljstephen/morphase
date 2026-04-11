@@ -2,13 +2,14 @@ import path from "node:path";
 
 import prompts from "prompts";
 
-import { deriveOutputPath, inferResourceKind, type JobRequest, type ResourceKind } from "@muxory/shared";
+import { deriveOutputPath, inferResourceKind, isYoutubeUrl, type JobRequest, type ResourceKind } from "@muxory/shared";
 
 const categories = [
   { title: "Documents and markup", value: "documents" },
   { title: "PDF operations", value: "pdf" },
   { title: "Images", value: "images" },
   { title: "Audio and video", value: "media" },
+  { title: "YouTube and media URLs", value: "youtube" },
   { title: "Website extraction", value: "web" }
 ] as const;
 
@@ -35,6 +36,12 @@ const mediaRoutes = [
   { title: "MKV to MP4", from: "mkv", to: "mp4" },
   { title: "WAV to MP3", from: "wav", to: "mp3" },
   { title: "MP3 to WAV", from: "mp3", to: "wav" }
+] as const;
+
+const youtubeRoutes = [
+  { title: "YouTube to transcript", from: "youtube-url" as ResourceKind, to: "transcript" as ResourceKind },
+  { title: "YouTube to MP4", from: "youtube-url" as ResourceKind, to: "mp4" as ResourceKind },
+  { title: "YouTube to MP3", from: "youtube-url" as ResourceKind, to: "mp3" as ResourceKind }
 ] as const;
 
 export async function runWizard(): Promise<JobRequest | null> {
@@ -113,6 +120,68 @@ export async function runWizard(): Promise<JobRequest | null> {
       operation: operationAnswer.operation,
       output: splitAnswers.output,
       options: splitAnswers.pages ? { pages: splitAnswers.pages } : {}
+    };
+  }
+
+  if (category === "youtube") {
+    const routeAnswer = await prompts({
+      type: "select",
+      name: "routeIndex",
+      message: "Which YouTube operation do you want?",
+      choices: youtubeRoutes.map((route, index) => ({ title: route.title, value: index }))
+    });
+
+    if (routeAnswer.routeIndex === undefined) {
+      return null;
+    }
+
+    const selected = youtubeRoutes[routeAnswer.routeIndex];
+
+    const urlAnswer = await prompts({
+      type: "text",
+      name: "input",
+      message: "What is the YouTube URL?"
+    });
+
+    if (!urlAnswer.input || !isYoutubeUrl(urlAnswer.input)) {
+      return null;
+    }
+
+    let format: string | undefined;
+    if (selected.to === "transcript") {
+      const formatAnswer = await prompts({
+        type: "select",
+        name: "format",
+        message: "Transcript format?",
+        choices: [
+          { title: "Plain text", value: "text" },
+          { title: "Markdown", value: "markdown" }
+        ]
+      });
+      format = formatAnswer.format;
+    }
+
+    const inferredOutput = path.resolve(deriveOutputPath(urlAnswer.input, selected.to));
+    const suggestedOutput = format === "markdown" && selected.to === "transcript"
+      ? inferredOutput.replace(/\.txt$/, ".md")
+      : inferredOutput;
+    const outputAnswer = await prompts({
+      type: "text",
+      name: "output",
+      message: "Suggested output path:",
+      initial: suggestedOutput
+    });
+
+    if (!outputAnswer.output) {
+      return null;
+    }
+
+    return {
+      input: urlAnswer.input,
+      from: "youtube-url",
+      to: selected.to,
+      output: outputAnswer.output,
+      options: format && format !== "text" ? { format } : {}
     };
   }
 
@@ -208,4 +277,3 @@ export async function runWizard(): Promise<JobRequest | null> {
     output: outputAnswer.output
   };
 }
-

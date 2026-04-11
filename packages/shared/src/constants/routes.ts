@@ -27,6 +27,7 @@ export const ROUTE_PREFERENCES: Record<string, string[]> = {
   "pdf:merge": ["qpdf"],
   "pdf:split": ["qpdf"],
   "pdf:optimize": ["qpdf"],
+  "youtube-url->transcript": ["summarize", "ytdlp"],
   "youtube-url->mp4": ["ytdlp"],
   "youtube-url->mp3": ["ytdlp"],
   "youtube-url->subtitle": ["ytdlp"],

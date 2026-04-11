@@ -8,7 +8,7 @@ import type { JobRequest, JobResult, MuxoryError, PlannedExecution } from "@muxo
 import { createError } from "../errors/muxory-error.js";
 import { Logger } from "../logging/logger.js";
 
-function enrichError(pluginId: string, error: MuxoryError, stderr: string): MuxoryError {
+export function enrichError(pluginId: string, error: MuxoryError, stderr: string): MuxoryError {
   if (pluginId === "ffmpeg" && /does not contain any stream/i.test(stderr)) {
     return {
       ...error,
@@ -25,6 +25,72 @@ function enrichError(pluginId: string, error: MuxoryError, stderr: string): Muxo
       ...error,
       likelyCause: "FFmpeg could not find the input file.",
       suggestedFixes: ["Check that the input path is correct and the file exists."]
+    };
+  }
+
+  if (pluginId === "ytdlp" && /requested format not available/i.test(stderr)) {
+    return {
+      ...error,
+      likelyCause: "The requested format is not available for this video.",
+      suggestedFixes: [
+        "Try a different output format.",
+        "The video may not support the requested quality or format."
+      ]
+    };
+  }
+
+  if (pluginId === "ytdlp" && /video unavailable|private/i.test(stderr)) {
+    return {
+      ...error,
+      likelyCause: "The YouTube video is unavailable, private, or region-locked.",
+      suggestedFixes: [
+        "Verify the URL is correct.",
+        "The video may be private, deleted, or geo-restricted."
+      ]
+    };
+  }
+
+  if (pluginId === "ytdlp" && /sign in|bot/i.test(stderr)) {
+    return {
+      ...error,
+      likelyCause: "YouTube is requiring authentication or blocking the request.",
+      suggestedFixes: [
+        "Update yt-dlp to the latest version (muxory backend update ytdlp).",
+        "YouTube may be rate-limiting or blocking automated requests."
+      ]
+    };
+  }
+
+  if (pluginId === "ytdlp" && /ffmpeg/i.test(stderr)) {
+    return {
+      ...error,
+      likelyCause: "FFmpeg is required for this operation but is not installed.",
+      suggestedFixes: [
+        "Install ffmpeg (brew install ffmpeg on macOS).",
+        "MP3 extraction requires ffmpeg for audio conversion."
+      ]
+    };
+  }
+
+  if (pluginId === "summarize" && /node.*version|unsupported/i.test(stderr)) {
+    return {
+      ...error,
+      likelyCause: "summarize requires Node 22 or later.",
+      suggestedFixes: [
+        "Upgrade Node.js to version 22 or later.",
+        "Run `node --version` to check your current version."
+      ]
+    };
+  }
+
+  if (pluginId === "summarize" && /transcript|subtitle/i.test(stderr)) {
+    return {
+      ...error,
+      likelyCause: "summarize could not extract a transcript from this content.",
+      suggestedFixes: [
+        "The video may not have subtitles or transcript data available.",
+        "Try the yt-dlp fallback: muxory fetch \"<url>\" --to transcript --backend ytdlp"
+      ]
     };
   }
 

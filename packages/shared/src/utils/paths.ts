@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import type { ResourceKind } from "../types/index.js";
+import { isUrl } from "./resources.js";
 
 const extensionByKind: Record<ResourceKind, string> = {
   markdown: ".md",
@@ -35,8 +36,20 @@ export function extensionForResourceKind(kind: ResourceKind): string {
 
 export function deriveOutputPath(input: string | string[], to: ResourceKind): string {
   const first = Array.isArray(input) ? input[0] : input;
-  const parsed = path.parse(first);
-  return path.join(parsed.dir || process.cwd(), `${parsed.name}${extensionForResourceKind(to)}`);
+  const ext = extensionForResourceKind(to);
+
+  if (isUrl(first)) {
+    try {
+      const parsed = new URL(first);
+      const videoId = parsed.searchParams.get("v") || parsed.pathname.split("/").filter(Boolean).pop() || "output";
+      return path.join(process.cwd(), `${videoId}${ext}`);
+    } catch {
+      return path.join(process.cwd(), `output${ext}`);
+    }
+  }
+
+  const filePath = path.parse(first);
+  return path.join(filePath.dir || process.cwd(), `${filePath.name}${ext}`);
 }
 
 export async function ensureDirectoryExists(directory: string): Promise<void> {

@@ -9,6 +9,7 @@ export { doclingPlugin } from "../docling/src/index.js";
 export { jinaPlugin } from "../jina/src/index.js";
 export { ytdlpPlugin } from "../ytdlp/src/index.js";
 export { whisperPlugin } from "../whisper/src/index.js";
+export { summarizePlugin } from "../summarize/src/index.js";
 
 import { doclingPlugin } from "../docling/src/index.js";
 import { ffmpegPlugin } from "../ffmpeg/src/index.js";
@@ -21,6 +22,7 @@ import { qpdfPlugin } from "../qpdf/src/index.js";
 import { trafilaturaPlugin } from "../trafilatura/src/index.js";
 import { whisperPlugin } from "../whisper/src/index.js";
 import { ytdlpPlugin } from "../ytdlp/src/index.js";
+import { summarizePlugin } from "../summarize/src/index.js";
 
 export const builtinPlugins = [
   pandocPlugin,
@@ -33,5 +35,6 @@ export const builtinPlugins = [
   doclingPlugin,
   jinaPlugin,
   ytdlpPlugin,
-  whisperPlugin
+  whisperPlugin,
+  summarizePlugin
 ];

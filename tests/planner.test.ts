@@ -154,4 +154,329 @@ describe("Planner", () => {
     expect(plan.selectedPluginId).toBe("pipeline:pdf-to-txt-via-markdown");
     expect(plan.steps).toHaveLength(2);
   });
+
+  it("prefers summarize over ytdlp for youtube-url->transcript", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "summarize",
+        name: "summarize",
+        priority: 70,
+        capabilities: () => [
+          {
+            kind: "extract",
+            from: "youtube-url",
+            to: "transcript",
+            quality: "high",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        plan: async (request) => ({
+          command: "summarize",
+          args: ["--format", "text", "--transcript", String(request.input)],
+          expectedOutputs: [request.output ?? "/tmp/transcript.txt"],
+          stdoutFile: request.output ?? "/tmp/transcript.txt"
+        })
+      }),
+      createPlugin({
+        id: "ytdlp",
+        name: "yt-dlp",
+        priority: 60,
+        capabilities: () => [
+          {
+            kind: "fetch",
+            from: "youtube-url",
+            to: "transcript",
+            quality: "medium",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        plan: async (request) => ({
+          command: "yt-dlp",
+          args: ["--write-auto-subs", "--skip-download", String(request.input)],
+          expectedOutputs: [request.output ?? "/tmp/transcript.txt"]
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const request: PlanRequest = {
+      input: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      from: "youtube-url",
+      to: "transcript",
+      output: "/tmp/transcript.txt",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "youtube-url",
+        to: "transcript"
+      }
+    };
+
+    const plan = await planner.plan(request);
+    expect(plan.selectedPluginId).toBe("summarize");
+    expect(plan.explanation).toContain("preferred");
+  });
+
+  it("falls back to ytdlp when summarize is not installed for transcript route", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "summarize",
+        name: "summarize",
+        priority: 70,
+        capabilities: () => [
+          {
+            kind: "extract",
+            from: "youtube-url",
+            to: "transcript",
+            quality: "high",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        detect: async () => ({ installed: false, reason: "summarize not found" }),
+        plan: async () => null
+      }),
+      createPlugin({
+        id: "ytdlp",
+        name: "yt-dlp",
+        priority: 60,
+        capabilities: () => [
+          {
+            kind: "fetch",
+            from: "youtube-url",
+            to: "transcript",
+            quality: "medium",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        plan: async (request) => ({
+          command: "yt-dlp",
+          args: ["--write-auto-subs", "--skip-download", String(request.input)],
+          expectedOutputs: [request.output ?? "/tmp/transcript.txt"]
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const request: PlanRequest = {
+      input: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      from: "youtube-url",
+      to: "transcript",
+      output: "/tmp/transcript.txt",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "youtube-url",
+        to: "transcript"
+      }
+    };
+
+    const plan = await planner.plan(request);
+    expect(plan.selectedPluginId).toBe("ytdlp");
+  });
+
+  it("selects ytdlp for youtube-url->mp4", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "ytdlp",
+        name: "yt-dlp",
+        priority: 60,
+        capabilities: () => [
+          {
+            kind: "fetch",
+            from: "youtube-url",
+            to: "mp4",
+            quality: "medium",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        plan: async (request) => ({
+          command: "yt-dlp",
+          args: ["--remux-video", "mp4", "-o", request.output ?? "/tmp/out.mp4", String(request.input)],
+          expectedOutputs: [request.output ?? "/tmp/out.mp4"]
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const request: PlanRequest = {
+      input: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      from: "youtube-url",
+      to: "mp4",
+      output: "/tmp/out.mp4",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "youtube-url",
+        to: "mp4"
+      }
+    };
+
+    const plan = await planner.plan(request);
+    expect(plan.selectedPluginId).toBe("ytdlp");
+  });
+
+  it("reports installNeeded when no backend is installed for youtube transcript", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "summarize",
+        name: "summarize",
+        priority: 70,
+        capabilities: () => [
+          {
+            kind: "extract",
+            from: "youtube-url",
+            to: "transcript",
+            quality: "high",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        detect: async () => ({ installed: false, reason: "summarize not found" }),
+        verify: async () => ({ ok: false, issues: ["not installed"], warnings: [] }),
+        getInstallHints: () => [{ manager: "brew", command: "npm i -g @steipete/summarize" }],
+        plan: async () => null
+      }),
+      createPlugin({
+        id: "ytdlp",
+        name: "yt-dlp",
+        priority: 60,
+        capabilities: () => [
+          {
+            kind: "fetch",
+            from: "youtube-url",
+            to: "transcript",
+            quality: "medium",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        detect: async () => ({ installed: false, reason: "yt-dlp not found" }),
+        verify: async () => ({ ok: false, issues: ["not installed"], warnings: [] }),
+        getInstallHints: () => [{ manager: "brew", command: "brew install yt-dlp" }],
+        plan: async () => null
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const request: PlanRequest = {
+      input: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      from: "youtube-url",
+      to: "transcript",
+      output: "/tmp/transcript.txt",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "youtube-url",
+        to: "transcript"
+      }
+    };
+
+    const plan = await planner.plan(request);
+    expect(plan.installNeeded).toBe(true);
+    expect(plan.selectedPluginId).toBe("summarize");
+  });
+
+  it("generates equivalent command using muxory fetch for youtube-url routes", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "ytdlp",
+        name: "yt-dlp",
+        priority: 60,
+        capabilities: () => [
+          {
+            kind: "fetch",
+            from: "youtube-url",
+            to: "mp4",
+            quality: "medium",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        plan: async (request) => ({
+          command: "yt-dlp",
+          args: ["--remux-video", "mp4", "-o", request.output ?? "/tmp/out.mp4", String(request.input)],
+          expectedOutputs: [request.output ?? "/tmp/out.mp4"]
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const request: PlanRequest = {
+      input: "https://www.youtube.com/watch?v=abc123",
+      from: "youtube-url",
+      to: "mp4",
+      output: "abc123.mp4",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "youtube-url",
+        to: "mp4"
+      }
+    };
+
+    const plan = await planner.plan(request);
+    expect(plan.equivalentCommand).toContain("muxory fetch");
+    expect(plan.equivalentCommand).toContain("--to mp4");
+  });
+
+  it("generates equivalent command using muxory fetch for url routes", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "trafilatura",
+        name: "Trafilatura",
+        priority: 90,
+        capabilities: () => [
+          {
+            kind: "extract",
+            from: "url",
+            to: "markdown",
+            quality: "high",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        plan: async (request) => ({
+          command: "trafilatura",
+          args: ["--output-format", "markdown", String(request.input)],
+          expectedOutputs: [request.output ?? "/tmp/out.md"],
+          stdoutFile: request.output ?? "/tmp/out.md"
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const request: PlanRequest = {
+      input: "https://example.com/article",
+      from: "url",
+      to: "markdown",
+      output: "article.md",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "url",
+        to: "markdown"
+      }
+    };
+
+    const plan = await planner.plan(request);
+    expect(plan.equivalentCommand).toContain("muxory fetch");
+    expect(plan.equivalentCommand).toContain("--to markdown");
+  });
 });

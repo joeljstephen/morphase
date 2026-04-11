@@ -36,11 +36,11 @@ function equivalentCommandForRequest(request: PlanRequest): string {
     return `muxory ${request.route.resource} ${request.route.action} ${printableInput}${optionSuffix} -o ${output}`.trim();
   }
 
-  if (request.route.from === "url") {
+  if (request.route.from === "url" || request.route.from === "youtube-url") {
     return `muxory fetch ${printableInput} --to ${request.route.to}${output ? ` -o ${output}` : ""}`;
   }
 
-  if (["mp3", "wav", "mp4", "mov", "mkv", "youtube-url"].includes(request.route.from)) {
+  if (["mp3", "wav", "mp4", "mov", "mkv"].includes(request.route.from)) {
     return `muxory media ${printableInput} --to ${request.route.to}${output ? ` -o ${output}` : ""}`;
   }
 
