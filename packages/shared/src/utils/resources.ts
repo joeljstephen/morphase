@@ -47,9 +47,44 @@ export function isYoutubeUrl(input: string): boolean {
   return host === "youtube.com" || host === "youtu.be" || host.endsWith(".youtube.com");
 }
 
+const mediaHostPatterns = [
+  "instagram.com",
+  "tiktok.com",
+  "facebook.com",
+  "fb.watch",
+  "fb.com",
+  "twitter.com",
+  "x.com",
+  "t.co",
+  "reddit.com",
+  "vimeo.com",
+  "twitch.tv",
+  "dailymotion.com",
+  "streamable.com",
+  "soundcloud.com",
+  "pinterest.com",
+  "tumblr.com",
+  "bilibili.com",
+  "rumble.com",
+  "kick.com"
+];
+
+export function isMediaUrl(input: string): boolean {
+  if (!isUrl(input)) {
+    return false;
+  }
+
+  const host = new URL(input).hostname.replace(/^www\./, "");
+  return mediaHostPatterns.some((pattern) => host === pattern || host.endsWith(`.${pattern}`));
+}
+
 export function inferResourceKind(input: string): ResourceKind | undefined {
   if (isYoutubeUrl(input)) {
     return "youtube-url";
+  }
+
+  if (isMediaUrl(input)) {
+    return "media-url";
   }
 
   if (isUrl(input)) {

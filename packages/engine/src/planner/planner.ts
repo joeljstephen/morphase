@@ -36,7 +36,7 @@ function equivalentCommandForRequest(request: PlanRequest): string {
     return `muxory ${request.route.resource} ${request.route.action} ${printableInput}${optionSuffix}${output ? ` -o ${output}` : ""}`.trim();
   }
 
-  if (request.route.from === "url" || request.route.from === "youtube-url") {
+  if (request.route.from === "url" || request.route.from === "youtube-url" || request.route.from === "media-url") {
     return `muxory fetch ${printableInput} --to ${request.route.to}${output ? ` -o ${output}` : ""}`;
   }
 

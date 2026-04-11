@@ -2,7 +2,7 @@ import path from "node:path";
 
 import prompts from "prompts";
 
-import { deriveOutputPath, inferResourceKind, isYoutubeUrl, type JobRequest, type ResourceKind } from "@muxory/shared";
+import { deriveOutputPath, inferResourceKind, isMediaUrl, isUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@muxory/shared";
 
 const BACK = "__back__" as const;
 
@@ -13,7 +13,7 @@ const categories = [
   { title: "PDF operations", value: "pdf" },
   { title: "Images", value: "images" },
   { title: "Audio and video", value: "media" },
-  { title: "YouTube and media URLs", value: "youtube" },
+  { title: "Video & social media download (YouTube, Instagram, TikTok, X, Facebook, and more)", value: "youtube" },
   { title: "Website extraction", value: "web" }
 ] as const;
 
@@ -47,9 +47,9 @@ const mediaRoutes = [
 ] as const;
 
 const youtubeRoutes = [
-  { title: "YouTube to transcript", from: "youtube-url" as ResourceKind, to: "transcript" as ResourceKind },
-  { title: "YouTube to MP4", from: "youtube-url" as ResourceKind, to: "mp4" as ResourceKind },
-  { title: "YouTube to MP3", from: "youtube-url" as ResourceKind, to: "mp3" as ResourceKind }
+  { title: "Video/audio to transcript", from: "youtube-url" as ResourceKind, to: "transcript" as ResourceKind },
+  { title: "Video/audio to MP4", from: "youtube-url" as ResourceKind, to: "mp4" as ResourceKind },
+  { title: "Video/audio to MP3", from: "youtube-url" as ResourceKind, to: "mp3" as ResourceKind }
 ] as const;
 
 function backChoice<T>() {
@@ -145,7 +145,7 @@ async function handleYoutubeCategory(): Promise<WizardStepResult> {
   const routeAnswer = await prompts({
     type: "select",
     name: "routeIndex",
-    message: "Which YouTube operation?",
+    message: "Which operation?",
     choices: [
       backChoice(),
       ...youtubeRoutes.map((route, index) => ({ title: route.title, value: index }))
@@ -161,12 +161,20 @@ async function handleYoutubeCategory(): Promise<WizardStepResult> {
   const urlAnswer = await prompts({
     type: "text",
     name: "input",
-    message: "YouTube URL:"
+    message: "URL (YouTube, Instagram, TikTok, Facebook, Twitter/X, Reddit, Vimeo, etc.):"
   });
 
-  if (!urlAnswer.input || !isYoutubeUrl(urlAnswer.input)) {
+  if (!urlAnswer.input) {
     return null;
   }
+
+  const isYT = isYoutubeUrl(urlAnswer.input);
+  const isMedia = isMediaUrl(urlAnswer.input);
+  if (!isYT && !isMedia && !isUrl(urlAnswer.input)) {
+    return null;
+  }
+
+  const from: ResourceKind = isYT ? "youtube-url" : "media-url";
 
   let format: string | undefined;
   if (selected.to === "transcript") {
@@ -194,7 +202,7 @@ async function handleYoutubeCategory(): Promise<WizardStepResult> {
 
   return {
     input: urlAnswer.input,
-    from: "youtube-url",
+    from,
     to: selected.to,
     output,
     options: format && format !== "text" ? { format } : {}

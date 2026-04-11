@@ -26,6 +26,7 @@ const extensionByKind: Record<ResourceKind, string> = {
   mkv: ".mkv",
   url: ".txt",
   "youtube-url": ".txt",
+  "media-url": ".txt",
   subtitle: ".srt",
   transcript: ".txt"
 };

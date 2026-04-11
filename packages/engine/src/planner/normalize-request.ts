@@ -31,7 +31,7 @@ function invocationCwd(): string {
 
 function resolveInputPath(input: string): string {
   const inferred = inferResourceKind(input);
-  if (inferred === "url" || inferred === "youtube-url") {
+  if (inferred === "url" || inferred === "youtube-url" || inferred === "media-url") {
     return input;
   }
 

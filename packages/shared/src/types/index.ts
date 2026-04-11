@@ -20,6 +20,7 @@ export const resourceKinds = [
   "mkv",
   "url",
   "youtube-url",
+  "media-url",
   "subtitle",
   "transcript"
 ] as const;

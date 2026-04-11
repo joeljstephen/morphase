@@ -5,7 +5,7 @@ import prompts from "prompts";
 
 import { MuxoryEngine } from "@muxory/engine";
 import { createMuxoryServer } from "@muxory/server";
-import { inferResourceKind, isYoutubeUrl, type JobRequest, type ResourceKind } from "@muxory/shared";
+import { inferResourceKind, isMediaUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@muxory/shared";
 
 import { formatCliError, formatDoctorReport, formatJobResult } from "./format.js";
 import { runWizard } from "./wizard.js";
@@ -104,7 +104,7 @@ async function main() {
   const engine = await MuxoryEngine.create();
   const program = new Command();
 
-  program.name("muxory").description("Local-first open-source conversion router");
+  program.name("muxory").description("Local-first open-source conversion router — download from YouTube, Instagram, TikTok, Facebook, Twitter/X, and 1800+ sites");
 
   collectCommonOptions(
     program.command("convert <input> <output>").description("Convert a file from one format to another")
@@ -151,7 +151,7 @@ async function main() {
     .option("--format <format>", "Output format: text or markdown (default: text)")
     .action(async (url, options) => {
       try {
-        const from: ResourceKind | undefined = isYoutubeUrl(url) ? "youtube-url" : "url";
+        const from: ResourceKind | undefined = isYoutubeUrl(url) ? "youtube-url" : isMediaUrl(url) ? "media-url" : "url";
         await handleJob(
           engine,
           buildRequest(options, {

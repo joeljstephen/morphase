@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Doctor } from "../packages/engine/src/doctor/doctor.js";
 import { enrichError } from "../packages/engine/src/executor/executor.js";
 import { ROUTE_PREFERENCES } from "../packages/shared/src/constants/routes.js";
-import { isYoutubeUrl } from "../packages/shared/src/utils/resources.js";
+import { isMediaUrl, isYoutubeUrl } from "../packages/shared/src/utils/resources.js";
 import type { MuxoryError, MuxoryPlugin } from "../packages/shared/src/index.js";
 
 describe("YouTube URL detection", () => {
@@ -29,6 +29,71 @@ describe("YouTube URL detection", () => {
 
   it("rejects non-URL strings", () => {
     expect(isYoutubeUrl("not a url")).toBe(false);
+  });
+});
+
+describe("Media URL detection", () => {
+  it("detects Instagram URLs", () => {
+    expect(isMediaUrl("https://www.instagram.com/reel/abc123/")).toBe(true);
+  });
+
+  it("detects TikTok URLs", () => {
+    expect(isMediaUrl("https://www.tiktok.com/@user/video/123456")).toBe(true);
+  });
+
+  it("detects Facebook URLs", () => {
+    expect(isMediaUrl("https://www.facebook.com/watch/?v=123456")).toBe(true);
+  });
+
+  it("detects Twitter/X URLs", () => {
+    expect(isMediaUrl("https://x.com/user/status/123456")).toBe(true);
+    expect(isMediaUrl("https://twitter.com/user/status/123456")).toBe(true);
+  });
+
+  it("detects Reddit URLs", () => {
+    expect(isMediaUrl("https://www.reddit.com/r/programming/comments/abc/")).toBe(true);
+  });
+
+  it("detects Vimeo URLs", () => {
+    expect(isMediaUrl("https://vimeo.com/123456789")).toBe(true);
+  });
+
+  it("detects Twitch URLs", () => {
+    expect(isMediaUrl("https://www.twitch.tv/videos/123456")).toBe(true);
+  });
+
+  it("detects SoundCloud URLs", () => {
+    expect(isMediaUrl("https://soundcloud.com/artist/track")).toBe(true);
+  });
+
+  it("detects Dailymotion URLs", () => {
+    expect(isMediaUrl("https://www.dailymotion.com/video/x123abc")).toBe(true);
+  });
+
+  it("does not flag YouTube URLs as media URLs", () => {
+    expect(isMediaUrl("https://www.youtube.com/watch?v=abc")).toBe(false);
+  });
+
+  it("rejects generic URLs", () => {
+    expect(isMediaUrl("https://example.com")).toBe(false);
+  });
+
+  it("rejects non-URL strings", () => {
+    expect(isMediaUrl("not a url")).toBe(false);
+  });
+});
+
+describe("Route preferences for media-url routes", () => {
+  it("uses ytdlp for media-url->mp4", () => {
+    expect(ROUTE_PREFERENCES["media-url->mp4"]).toEqual(["ytdlp"]);
+  });
+
+  it("uses ytdlp for media-url->mp3", () => {
+    expect(ROUTE_PREFERENCES["media-url->mp3"]).toEqual(["ytdlp"]);
+  });
+
+  it("uses ytdlp for media-url->transcript", () => {
+    expect(ROUTE_PREFERENCES["media-url->transcript"]).toEqual(["ytdlp"]);
   });
 });
 

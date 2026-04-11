@@ -25,9 +25,11 @@ export const ytdlpPlugin: MuxoryPlugin = definePlugin({
   commonProblems: [
     "Users are responsible for rights and terms compliance.",
     "Platform or site changes can break download behavior.",
-    "MP3 extraction requires ffmpeg to be installed separately."
+    "MP3 extraction requires ffmpeg to be installed separately.",
+    "Some platforms may require authentication or have geo-restrictions."
   ],
   capabilities() {
+    const platforms: Platform[] = ["macos", "windows", "linux"];
     return [
       {
         kind: "fetch",
@@ -35,7 +37,7 @@ export const ytdlpPlugin: MuxoryPlugin = definePlugin({
         to: "mp4",
         quality: "medium",
         offline: false,
-        platforms: ["macos", "windows", "linux"],
+        platforms,
         notes: ["Use responsibly and ensure you have rights to fetch the media."]
       },
       {
@@ -44,7 +46,7 @@ export const ytdlpPlugin: MuxoryPlugin = definePlugin({
         to: "mp3",
         quality: "medium",
         offline: false,
-        platforms: ["macos", "windows", "linux"],
+        platforms,
         notes: [
           "Use responsibly and ensure you have rights to fetch the media.",
           "Requires ffmpeg for audio extraction."
@@ -56,7 +58,7 @@ export const ytdlpPlugin: MuxoryPlugin = definePlugin({
         to: "transcript",
         quality: "medium",
         offline: false,
-        platforms: ["macos", "windows", "linux"],
+        platforms,
         notes: [
           "Downloads auto-generated subtitles as a transcript approximation.",
           "For higher quality transcripts, install the summarize plugin."
@@ -68,8 +70,44 @@ export const ytdlpPlugin: MuxoryPlugin = definePlugin({
         to: "subtitle",
         quality: "medium",
         offline: false,
-        platforms: ["macos", "windows", "linux"],
+        platforms,
         notes: ["Downloads available subtitles."]
+      },
+      {
+        kind: "fetch",
+        from: "media-url",
+        to: "mp4",
+        quality: "medium",
+        offline: false,
+        platforms,
+        notes: [
+          "Downloads video from Instagram, TikTok, Facebook, Twitter/X, Reddit, Vimeo, and 1800+ other sites.",
+          "Use responsibly and ensure you have rights to fetch the media."
+        ]
+      },
+      {
+        kind: "fetch",
+        from: "media-url",
+        to: "mp3",
+        quality: "medium",
+        offline: false,
+        platforms,
+        notes: [
+          "Extracts audio from Instagram, TikTok, Facebook, Twitter/X, Reddit, Vimeo, and 1800+ other sites.",
+          "Requires ffmpeg for audio extraction."
+        ]
+      },
+      {
+        kind: "fetch",
+        from: "media-url",
+        to: "transcript",
+        quality: "medium",
+        offline: false,
+        platforms,
+        notes: [
+          "Downloads auto-generated subtitles as a transcript approximation from supported platforms.",
+          "Not all platforms provide subtitles."
+        ]
       }
     ];
   },
@@ -106,7 +144,12 @@ export const ytdlpPlugin: MuxoryPlugin = definePlugin({
       return null;
     }
 
-    const { to } = request.route;
+    const { from, to } = request.route;
+
+    if (from !== "youtube-url" && from !== "media-url") {
+      return null;
+    }
+
     const directory = path.dirname(request.output);
     const basename = path.parse(request.output).name;
     const template = path.join(directory, `${basename}.%(ext)s`);
@@ -174,12 +217,22 @@ export const ytdlpPlugin: MuxoryPlugin = definePlugin({
     return null;
   },
   async explain(request: PlanRequest) {
-    if (request.route.kind === "conversion" && request.route.to === "transcript") {
-      return "yt-dlp can extract YouTube auto-generated subtitles as a transcript approximation. For higher quality transcripts, install the summarize plugin (npm i -g @steipete/summarize).";
+    if (request.route.kind !== "conversion") {
+      return "yt-dlp is the media acquisition backend supporting YouTube, Instagram, TikTok, Facebook, Twitter/X, Reddit, Vimeo, and 1800+ other sites.";
     }
-    if (request.route.kind === "conversion" && request.route.to === "mp3") {
-      return "yt-dlp is the media download backend for YouTube MP3 extraction. This route requires ffmpeg for audio conversion.";
+    const { from, to } = request.route;
+    if (to === "transcript") {
+      if (from === "youtube-url") {
+        return "yt-dlp can extract YouTube auto-generated subtitles as a transcript approximation. For higher quality transcripts, install the summarize plugin (npm i -g @steipete/summarize).";
+      }
+      return "yt-dlp can extract auto-generated subtitles as a transcript approximation from supported platforms. Not all platforms provide subtitles.";
     }
-    return "yt-dlp is the optional media acquisition backend for YouTube URLs.";
+    if (to === "mp3") {
+      return "yt-dlp is the media download backend for MP3 extraction. This route requires ffmpeg for audio conversion.";
+    }
+    if (from === "media-url") {
+      return "yt-dlp is the media acquisition backend supporting Instagram, TikTok, Facebook, Twitter/X, Reddit, Vimeo, and 1800+ other sites.";
+    }
+    return "yt-dlp is the media acquisition backend supporting YouTube and 1800+ other sites.";
   }
 });
