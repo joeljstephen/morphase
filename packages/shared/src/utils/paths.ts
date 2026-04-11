@@ -52,6 +52,18 @@ export function deriveOutputPath(input: string | string[], to: ResourceKind): st
   return path.join(filePath.dir || process.cwd(), `${filePath.name}${ext}`);
 }
 
+export function deriveOperationOutputPath(input: string | string[], from: ResourceKind): string {
+  const first = Array.isArray(input) ? input[0] : input;
+  const ext = extensionForResourceKind(from);
+
+  if (isUrl(first)) {
+    return deriveOutputPath(input, from);
+  }
+
+  const filePath = path.parse(first);
+  return path.join(filePath.dir || process.cwd(), `${filePath.name}_compressed${ext}`);
+}
+
 export async function ensureDirectoryExists(directory: string): Promise<void> {
   await fs.mkdir(directory, { recursive: true });
 }

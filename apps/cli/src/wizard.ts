@@ -4,6 +4,10 @@ import prompts from "prompts";
 
 import { deriveOutputPath, inferResourceKind, isYoutubeUrl, type JobRequest, type ResourceKind } from "@muxory/shared";
 
+const BACK = "__back__" as const;
+
+type WizardStepResult = JobRequest | null | typeof BACK;
+
 const categories = [
   { title: "Documents and markup", value: "documents" },
   { title: "PDF operations", value: "pdf" },
@@ -19,6 +23,7 @@ const documentRoutes = [
   { title: "HTML to PDF", from: "html", to: "pdf" },
   { title: "HTML to Markdown", from: "html", to: "markdown" },
   { title: "DOCX to PDF", from: "docx", to: "pdf" },
+  { title: "PDF to Word (DOCX)", from: "pdf", to: "docx" },
   { title: "PPTX to PDF", from: "pptx", to: "pdf" },
   { title: "XLSX to PDF", from: "xlsx", to: "pdf" }
 ] as const;
@@ -27,7 +32,9 @@ const imageRoutes = [
   { title: "JPG to PNG", from: "jpg", to: "png" },
   { title: "PNG to JPG", from: "png", to: "jpg" },
   { title: "WEBP to PNG", from: "webp", to: "png" },
-  { title: "WEBP to JPG", from: "webp", to: "jpg" }
+  { title: "WEBP to JPG", from: "webp", to: "jpg" },
+  { title: "Compress JPEG", from: "jpg", to: undefined, operation: "compress" },
+  { title: "Compress PNG", from: "png", to: undefined, operation: "compress" }
 ] as const;
 
 const mediaRoutes = [
@@ -35,7 +42,8 @@ const mediaRoutes = [
   { title: "MOV to MP4", from: "mov", to: "mp4" },
   { title: "MKV to MP4", from: "mkv", to: "mp4" },
   { title: "WAV to MP3", from: "wav", to: "mp3" },
-  { title: "MP3 to WAV", from: "mp3", to: "wav" }
+  { title: "MP3 to WAV", from: "mp3", to: "wav" },
+  { title: "Compress video", from: undefined, to: undefined, operation: "compress" }
 ] as const;
 
 const youtubeRoutes = [
@@ -44,189 +52,199 @@ const youtubeRoutes = [
   { title: "YouTube to MP3", from: "youtube-url" as ResourceKind, to: "mp3" as ResourceKind }
 ] as const;
 
-export async function runWizard(): Promise<JobRequest | null> {
-  const categoryAnswer = await prompts({
+function backChoice<T>() {
+  return { title: "← Back", value: BACK as T };
+}
+
+async function askOutputPath(suggestedPath: string): Promise<string | typeof BACK | undefined> {
+  const answer = await prompts({
+    type: "text",
+    name: "output",
+    message: "Save to:",
+    initial: suggestedPath
+  });
+  return answer.output;
+}
+
+async function handlePdfCategory(): Promise<WizardStepResult> {
+  const operationAnswer = await prompts({
     type: "select",
-    name: "category",
-    message: "What do you want to do?",
-    choices: categories.map((item) => ({ title: item.title, value: item.value }))
+    name: "operation",
+    message: "Which PDF operation?",
+    choices: [
+      backChoice(),
+      { title: "Merge PDFs", value: "merge" },
+      { title: "Split / extract pages", value: "split" },
+      { title: "Optimize PDF", value: "optimize" }
+    ]
   });
 
-  const category = categoryAnswer.category as string | undefined;
-  if (!category) {
-    return null;
+  if (operationAnswer.operation === BACK || !operationAnswer.operation) {
+    return BACK;
   }
 
-  if (category === "pdf") {
-    const operationAnswer = await prompts({
-      type: "select",
-      name: "operation",
-      message: "Which PDF operation do you want?",
-      choices: [
-        { title: "Merge PDFs", value: "merge" },
-        { title: "Split/extract page range", value: "split" },
-        { title: "Optimize PDF", value: "optimize" }
-      ]
-    });
-
-    if (!operationAnswer.operation) {
-      return null;
-    }
-
-    if (operationAnswer.operation === "merge") {
-      const mergeAnswers = await prompts([
-        {
-          type: "list",
-          name: "inputs",
-          message: "Enter the input PDF paths (comma-separated).",
-          separator: ","
-        },
-        {
-          type: "text",
-          name: "output",
-          message: "Where should the merged PDF be written?"
-        }
-      ]);
-
-      return {
-        input: mergeAnswers.inputs,
-        from: "pdf",
-        operation: "merge",
-        output: mergeAnswers.output
-      };
-    }
-
-    const splitAnswers = await prompts([
+  if (operationAnswer.operation === "merge") {
+    const mergeAnswers = await prompts([
       {
-        type: "text",
-        name: "input",
-        message: "Where is the input PDF?"
-      },
-      {
-        type: "text",
-        name: "pages",
-        message: "Which page range should be extracted? Example: 1-3,5"
+        type: "list",
+        name: "inputs",
+        message: "Input PDF paths (comma-separated):",
+        separator: ","
       },
       {
         type: "text",
         name: "output",
-        message: "Where should the output PDF be written?"
+        message: "Save to:"
       }
     ]);
 
-    return {
-      input: splitAnswers.input,
-      from: "pdf",
-      operation: operationAnswer.operation,
-      output: splitAnswers.output,
-      options: splitAnswers.pages ? { pages: splitAnswers.pages } : {}
-    };
-  }
-
-  if (category === "youtube") {
-    const routeAnswer = await prompts({
-      type: "select",
-      name: "routeIndex",
-      message: "Which YouTube operation do you want?",
-      choices: youtubeRoutes.map((route, index) => ({ title: route.title, value: index }))
-    });
-
-    if (routeAnswer.routeIndex === undefined) {
+    if (!mergeAnswers.inputs || !mergeAnswers.output) {
       return null;
     }
 
-    const selected = youtubeRoutes[routeAnswer.routeIndex];
+    return {
+      input: mergeAnswers.inputs,
+      from: "pdf",
+      operation: "merge",
+      output: mergeAnswers.output
+    };
+  }
 
-    const urlAnswer = await prompts({
+  const splitAnswers = await prompts([
+    {
       type: "text",
       name: "input",
-      message: "What is the YouTube URL?"
-    });
-
-    if (!urlAnswer.input || !isYoutubeUrl(urlAnswer.input)) {
-      return null;
-    }
-
-    let format: string | undefined;
-    if (selected.to === "transcript") {
-      const formatAnswer = await prompts({
-        type: "select",
-        name: "format",
-        message: "Transcript format?",
-        choices: [
-          { title: "Plain text", value: "text" },
-          { title: "Markdown", value: "markdown" }
-        ]
-      });
-      format = formatAnswer.format;
-    }
-
-    const inferredOutput = path.resolve(deriveOutputPath(urlAnswer.input, selected.to));
-    const suggestedOutput = format === "markdown" && selected.to === "transcript"
-      ? inferredOutput.replace(/\.txt$/, ".md")
-      : inferredOutput;
-    const outputAnswer = await prompts({
+      message: "Input PDF path:"
+    },
+    {
+      type: "text",
+      name: "pages",
+      message: "Page range (e.g. 1-3,5):"
+    },
+    {
       type: "text",
       name: "output",
-      message: "Suggested output path:",
-      initial: suggestedOutput
-    });
-
-    if (!outputAnswer.output) {
-      return null;
+      message: "Save to:"
     }
+  ]);
 
-    return {
-      input: urlAnswer.input,
-      from: "youtube-url",
-      to: selected.to,
-      output: outputAnswer.output,
-      options: format && format !== "text" ? { format } : {}
-    };
+  if (!splitAnswers.input || !splitAnswers.output) {
+    return null;
   }
 
-  if (category === "web") {
-    const fetchAnswers = await prompts([
-      {
-        type: "select",
-        name: "to",
-        message: "Which outcome do you want?",
-        choices: [
-          { title: "Markdown", value: "markdown" },
-          { title: "Plain text", value: "txt" }
-        ]
-      },
-      {
-        type: "text",
-        name: "input",
-        message: "What URL should Muxory fetch?"
-      }
-    ]);
+  return {
+    input: splitAnswers.input,
+    from: "pdf",
+    operation: operationAnswer.operation,
+    output: splitAnswers.output,
+    options: splitAnswers.pages ? { pages: splitAnswers.pages } : {}
+  };
+}
 
-    if (!fetchAnswers.input) {
-      return null;
-    }
+async function handleYoutubeCategory(): Promise<WizardStepResult> {
+  const routeAnswer = await prompts({
+    type: "select",
+    name: "routeIndex",
+    message: "Which YouTube operation?",
+    choices: [
+      backChoice(),
+      ...youtubeRoutes.map((route, index) => ({ title: route.title, value: index }))
+    ]
+  });
 
-    const output = deriveOutputPath(fetchAnswers.input, fetchAnswers.to as ResourceKind);
-    const outputAnswer = await prompts({
-      type: "text",
-      name: "output",
-      message: "Suggested output path:",
-      initial: output
-    });
-
-    if (!outputAnswer.output) {
-      return null;
-    }
-
-    return {
-      input: fetchAnswers.input,
-      from: "url",
-      to: fetchAnswers.to,
-      output: outputAnswer.output
-    };
+  if (routeAnswer.routeIndex === BACK || routeAnswer.routeIndex === undefined) {
+    return BACK;
   }
 
+  const selected = youtubeRoutes[routeAnswer.routeIndex];
+
+  const urlAnswer = await prompts({
+    type: "text",
+    name: "input",
+    message: "YouTube URL:"
+  });
+
+  if (!urlAnswer.input || !isYoutubeUrl(urlAnswer.input)) {
+    return null;
+  }
+
+  let format: string | undefined;
+  if (selected.to === "transcript") {
+    const formatAnswer = await prompts({
+      type: "select",
+      name: "format",
+      message: "Transcript format?",
+      choices: [
+        { title: "Plain text", value: "text" },
+        { title: "Markdown", value: "markdown" }
+      ]
+    });
+    format = formatAnswer.format;
+  }
+
+  const inferredOutput = path.resolve(deriveOutputPath(urlAnswer.input, selected.to));
+  const suggestedOutput = format === "markdown" && selected.to === "transcript"
+    ? inferredOutput.replace(/\.txt$/, ".md")
+    : inferredOutput;
+  const output = await askOutputPath(suggestedOutput);
+
+  if (!output) {
+    return null;
+  }
+
+  return {
+    input: urlAnswer.input,
+    from: "youtube-url",
+    to: selected.to,
+    output,
+    options: format && format !== "text" ? { format } : {}
+  };
+}
+
+async function handleWebCategory(): Promise<WizardStepResult> {
+  const fetchAnswers = await prompts({
+    type: "select",
+    name: "to",
+    message: "Output format?",
+    choices: [
+      backChoice(),
+      { title: "Markdown", value: "markdown" },
+      { title: "Plain text", value: "txt" }
+    ]
+  });
+
+  if (fetchAnswers.to === BACK || fetchAnswers.to === undefined) {
+    return BACK;
+  }
+
+  const urlAnswer = await prompts({
+    type: "text",
+    name: "input",
+    message: "URL to fetch:"
+  });
+
+  if (!urlAnswer.input) {
+    return null;
+  }
+
+  const suggestedOutput = deriveOutputPath(urlAnswer.input, fetchAnswers.to as ResourceKind);
+  const output = await askOutputPath(suggestedOutput);
+
+  if (!output) {
+    return null;
+  }
+
+  return {
+    input: urlAnswer.input,
+    from: "url",
+    to: fetchAnswers.to,
+    output
+  };
+}
+
+async function handleRouteCategory(
+  category: "documents" | "images" | "media"
+): Promise<WizardStepResult> {
   const routeChoices =
     category === "documents"
       ? documentRoutes
@@ -237,43 +255,103 @@ export async function runWizard(): Promise<JobRequest | null> {
   const routeAnswer = await prompts({
     type: "select",
     name: "routeIndex",
-    message: "Which outcome do you want?",
-    choices: routeChoices.map((route, index) => ({ title: route.title, value: index }))
+    message: category === "documents" ? "Which conversion?" : "Which operation?",
+    choices: [
+      backChoice(),
+      ...routeChoices.map((route, index) => ({ title: route.title, value: index }))
+    ]
   });
 
-  if (routeAnswer.routeIndex === undefined) {
-    return null;
+  if (routeAnswer.routeIndex === BACK || routeAnswer.routeIndex === undefined) {
+    return BACK;
   }
 
   const selected = routeChoices[routeAnswer.routeIndex] as {
-    from: ResourceKind;
-    to: ResourceKind;
+    from: ResourceKind | undefined;
+    to: ResourceKind | undefined;
+    operation?: string;
   };
 
   const inputAnswer = await prompts({
     type: "text",
     name: "input",
-    message: "Where is the input file?"
+    message: "Input file:"
   });
 
   if (!inputAnswer.input) {
     return null;
   }
 
-  const inferredOutput = path.resolve(
-    deriveOutputPath(inputAnswer.input, selected.to)
-  );
-  const outputAnswer = await prompts({
-    type: "text",
-    name: "output",
-    message: "Suggested output path:",
-    initial: inferredOutput
-  });
+  const from = selected.from ?? inferResourceKind(inputAnswer.input);
+
+  if (selected.operation === "compress") {
+    const resourceFrom = from ?? inferResourceKind(inputAnswer.input) ?? "mp4";
+    const suggestedOutput = path.resolve(deriveOutputPath(inputAnswer.input, resourceFrom));
+    const output = await askOutputPath(suggestedOutput);
+
+    if (!output) {
+      return null;
+    }
+
+    return {
+      input: inputAnswer.input,
+      from: resourceFrom,
+      operation: "compress",
+      output
+    };
+  }
+
+  const to = selected.to!;
+  const suggestedOutput = path.resolve(deriveOutputPath(inputAnswer.input, to));
+  const output = await askOutputPath(suggestedOutput);
+
+  if (!output) {
+    return null;
+  }
 
   return {
     input: inputAnswer.input,
-    from: selected.from ?? inferResourceKind(inputAnswer.input),
-    to: selected.to,
-    output: outputAnswer.output
+    from: from ?? inferResourceKind(inputAnswer.input),
+    to,
+    output
   };
+}
+
+export async function runWizard(): Promise<JobRequest | null> {
+  while (true) {
+    const categoryAnswer = await prompts({
+      type: "select",
+      name: "category",
+      message: "What do you want to do?",
+      choices: categories.map((item) => ({ title: item.title, value: item.value }))
+    });
+
+    const category = categoryAnswer.category as string | undefined;
+    if (!category) {
+      return null;
+    }
+
+    let result: WizardStepResult;
+
+    switch (category) {
+      case "pdf":
+        result = await handlePdfCategory();
+        break;
+      case "youtube":
+        result = await handleYoutubeCategory();
+        break;
+      case "web":
+        result = await handleWebCategory();
+        break;
+      default:
+        result = await handleRouteCategory(category as "documents" | "images" | "media");
+        break;
+    }
+
+    if (result === BACK) {
+      continue;
+    }
+
+    return result;
+  }
 }

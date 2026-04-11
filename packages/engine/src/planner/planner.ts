@@ -33,7 +33,7 @@ function equivalentCommandForRequest(request: PlanRequest): string {
       request.route.action === "split" && typeof request.options.pages === "string"
         ? ` --pages ${request.options.pages}`
         : "";
-    return `muxory ${request.route.resource} ${request.route.action} ${printableInput}${optionSuffix} -o ${output}`.trim();
+    return `muxory ${request.route.resource} ${request.route.action} ${printableInput}${optionSuffix}${output ? ` -o ${output}` : ""}`.trim();
   }
 
   if (request.route.from === "url" || request.route.from === "youtube-url") {

@@ -1,5 +1,5 @@
 import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
-import type { MuxoryPlugin, PlanRequest, Platform } from "@muxory/shared";
+import type { MuxoryPlugin, PlanRequest, Platform, ResourceKind } from "@muxory/shared";
 
 import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
 
@@ -8,6 +8,8 @@ const installHints = packageHints(
   "winget install Gyan.FFmpeg",
   "sudo apt-get install ffmpeg"
 );
+
+const videoKinds: ResourceKind[] = ["mp4", "mov", "mkv"];
 
 export const ffmpegPlugin: MuxoryPlugin = definePlugin({
   id: "ffmpeg",
@@ -19,7 +21,7 @@ export const ffmpegPlugin: MuxoryPlugin = definePlugin({
     "Lossy transcoding routes reduce fidelity."
   ],
   capabilities() {
-    return [
+    const caps: ReturnType<MuxoryPlugin["capabilities"]> = [
       {
         kind: "convert",
         from: "mp4",
@@ -65,6 +67,21 @@ export const ffmpegPlugin: MuxoryPlugin = definePlugin({
         platforms: ["macos", "windows", "linux"]
       }
     ];
+
+    for (const resource of videoKinds) {
+      caps.push({
+        kind: "transform",
+        from: resource,
+        to: null,
+        operation: "compress",
+        quality: "medium",
+        offline: true,
+        platforms: ["macos", "windows", "linux"],
+        notes: ["Re-encodes to H.265/HEVC with AAC audio for significantly smaller file size."]
+      });
+    }
+
+    return caps;
   },
   detect() {
     return detectBinary(["ffmpeg"], ["-version"]);
@@ -83,7 +100,28 @@ export const ffmpegPlugin: MuxoryPlugin = definePlugin({
     });
   },
   async plan(request: PlanRequest) {
-    if (request.route.kind !== "conversion" || typeof request.input !== "string" || !request.output) {
+    if (typeof request.input !== "string" || !request.output) {
+      return null;
+    }
+
+    if (request.route.kind === "operation" && request.route.action === "compress") {
+      if (videoKinds.includes(request.route.resource as ResourceKind)) {
+        return {
+          command: "ffmpeg",
+          args: [
+            "-y", "-i", request.input,
+            "-c:v", "libx265", "-crf", "28", "-preset", "medium",
+            "-c:a", "aac", "-b:a", "128k",
+            "-movflags", "+faststart",
+            request.output
+          ],
+          expectedOutputs: [request.output]
+        };
+      }
+      return null;
+    }
+
+    if (request.route.kind !== "conversion") {
       return null;
     }
 
@@ -124,6 +162,9 @@ export const ffmpegPlugin: MuxoryPlugin = definePlugin({
     return null;
   },
   async explain(request: PlanRequest) {
+    if (request.route.kind === "operation" && request.route.action === "compress") {
+      return "FFmpeg re-encodes the video to H.265/HEVC with AAC audio, which typically produces a much smaller file with good quality.";
+    }
     return `FFmpeg is the default media backend for ${request.from} to ${request.to}.`;
   }
 });

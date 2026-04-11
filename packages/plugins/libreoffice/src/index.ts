@@ -1,7 +1,7 @@
 import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
 import type { MuxoryPlugin, PlanRequest, Platform, ResourceKind } from "@muxory/shared";
 
-import { detectBinary, libreOfficeGeneratedPdf, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, libreOfficeConvert, libreOfficeGeneratedPdf, packageHints, verifyBinary } from "../../src/helpers.js";
 
 const installHints = packageHints(
   "brew install --cask libreoffice",
@@ -19,7 +19,7 @@ export const libreOfficePlugin: MuxoryPlugin = definePlugin({
     "Office rendering fidelity is still best effort for some documents."
   ],
   capabilities() {
-    const supported: ResourceKind[] = [
+    const toPdf: ResourceKind[] = [
       "docx",
       "pptx",
       "xlsx",
@@ -28,14 +28,34 @@ export const libreOfficePlugin: MuxoryPlugin = definePlugin({
       "odp"
     ];
 
-    return supported.map((from) => ({
+    const caps: Array<{
+      kind: "convert";
+      from: ResourceKind;
+      to: ResourceKind;
+      quality: "high" | "medium";
+      offline: boolean;
+      platforms: Platform[];
+      notes?: string[];
+    }> = toPdf.map((from) => ({
       kind: "convert" as const,
       from,
-      to: "pdf" as const,
+      to: "pdf" as ResourceKind,
       quality: "high" as const,
       offline: true,
-      platforms: ["macos", "windows", "linux"] as const
+      platforms: ["macos", "windows", "linux"] as Platform[]
     }));
+
+    caps.push({
+      kind: "convert" as const,
+      from: "pdf" as const,
+      to: "docx" as const,
+      quality: "medium" as const,
+      offline: true,
+      platforms: ["macos", "windows", "linux"] as const,
+      notes: ["PDF to DOCX conversion extracts text and layout. Complex formatting may differ from the original."]
+    });
+
+    return caps;
   },
   detect() {
     return detectBinary(["soffice", "libreoffice"]);
@@ -57,15 +77,25 @@ export const libreOfficePlugin: MuxoryPlugin = definePlugin({
     if (
       request.route.kind !== "conversion" ||
       typeof request.input !== "string" ||
-      request.route.to !== "pdf" ||
       !request.output
     ) {
       return null;
     }
 
-    return libreOfficeGeneratedPdf(request.input, request.output);
+    if (request.route.to === "pdf") {
+      return libreOfficeGeneratedPdf(request.input, request.output);
+    }
+
+    if (request.route.from === "pdf" && request.route.to === "docx") {
+      return libreOfficeConvert(request.input, request.output, "docx");
+    }
+
+    return null;
   },
   async explain(request: PlanRequest) {
+    if (request.route.kind === "conversion" && request.route.from === "pdf" && request.route.to === "docx") {
+      return "LibreOffice can extract text and layout from PDF and produce a DOCX file. Complex formatting may not be perfectly preserved.";
+    }
     return `LibreOffice is the preferred office-document renderer for ${request.from} to ${request.to}.`;
   }
 });

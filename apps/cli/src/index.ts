@@ -47,16 +47,18 @@ async function handleJob(engine: MuxoryEngine, request: JobRequest, options?: { 
 
 async function printExplain(engine: MuxoryEngine, request: JobRequest) {
   const plan = await engine.explain(request);
-  console.log(`selected backend: ${plan.selectedPluginId}`);
-  console.log(`explanation: ${plan.explanation}`);
+  const dim = "\x1b[2m";
+  const reset = "\x1b[0m";
+  console.log(`${dim}Backend:${reset} ${plan.selectedPluginId}`);
+  console.log(`${dim}Plan:${reset}   ${plan.explanation}`);
   if (plan.installNeeded) {
-    console.log("install required: yes");
+    console.log(`${dim}Note:${reset}    Installation required before running.`);
   }
   if (plan.warnings.length) {
-    console.log(`warnings: ${plan.warnings.join(" | ")}`);
+    console.log(`${dim}Notes:${reset}   ${plan.warnings.join(" · ")}`);
   }
   if (plan.fallbacks.length) {
-    console.log(`fallbacks: ${plan.fallbacks.join(", ")}`);
+    console.log(`${dim}Fallbacks:${reset} ${plan.fallbacks.join(", ")}`);
   }
 }
 
@@ -185,6 +187,44 @@ async function main() {
       }
     });
 
+  const image = program.command("image").description("Image operations");
+
+  image
+    .command("compress <input>")
+    .option("-o, --output <path>", "Output path")
+    .action(async (input, options) => {
+      try {
+        const from = inferResourceKind(input) ?? "jpg";
+        await handleJob(engine, {
+          input,
+          from,
+          operation: "compress",
+          output: options.output as string | undefined
+        }, { setExitCode: true });
+      } catch (error) {
+        console.log(formatCliError(error));
+      }
+    });
+
+  const video = program.command("video").description("Video operations");
+
+  video
+    .command("compress <input>")
+    .option("-o, --output <path>", "Output path")
+    .action(async (input, options) => {
+      try {
+        const from = inferResourceKind(input) ?? "mp4";
+        await handleJob(engine, {
+          input,
+          from,
+          operation: "compress",
+          output: options.output as string | undefined
+        }, { setExitCode: true });
+      } catch (error) {
+        console.log(formatCliError(error));
+      }
+    });
+
   const pdf = program.command("pdf").description("PDF operations");
 
   pdf
@@ -254,8 +294,14 @@ async function main() {
   backend.command("list").action(async () => {
     try {
       const reports = await engine.doctorAll();
+      const green = "\x1b[32m";
+      const red = "\x1b[31m";
+      const dim = "\x1b[2m";
+      const reset = "\x1b[0m";
       for (const report of reports) {
-        console.log(`${report.id}\tinstalled=${report.installed}\tverified=${report.verified}\tversion=${report.version ?? "unknown"}`);
+        const icon = report.installed ? `${green}✓${reset}` : `${red}✗${reset}`;
+        const ver = report.version ? ` ${dim}v${report.version}${reset}` : "";
+        console.log(`${icon}  ${report.name}${ver}`);
       }
     } catch (error) {
       console.log(formatCliError(error));
@@ -345,10 +391,10 @@ async function main() {
       }
 
       const plan = await engine.explain(request);
-      console.log(`selected backend: ${plan.selectedPluginId}`);
       if (plan.installNeeded) {
         const report = await engine.doctorBackend(plan.selectedPluginId);
         console.log(formatDoctorReport(report));
+        console.log(`\nInstall the backend above and try again.`);
         return;
       }
 

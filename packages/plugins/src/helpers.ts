@@ -48,18 +48,22 @@ export async function verifyBinary(
 }
 
 export function libreOfficeGeneratedPdf(inputPath: string, outputPath: string): ExecutionPlan {
+  return libreOfficeConvert(inputPath, outputPath, "pdf");
+}
+
+export function libreOfficeConvert(inputPath: string, outputPath: string, format: string): ExecutionPlan {
   const outputDir = path.dirname(outputPath);
-  const sourceName = `${path.parse(inputPath).name}.pdf`;
-  const generatedPdf = path.join(outputDir, sourceName);
+  const sourceName = `${path.parse(inputPath).name}.${format}`;
+  const generated = path.join(outputDir, sourceName);
 
   return {
     command: "soffice",
-    args: ["--headless", "--convert-to", "pdf", "--outdir", outputDir, inputPath],
+    args: ["--headless", "--convert-to", format, "--outdir", outputDir, inputPath],
     expectedOutputs: [outputPath],
     outputMapping:
-      path.resolve(generatedPdf) === path.resolve(outputPath)
+      path.resolve(generated) === path.resolve(outputPath)
         ? undefined
-        : [{ source: generatedPdf, target: outputPath }]
+        : [{ source: generated, target: outputPath }]
   };
 }
 

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { deriveOutputPath, inferResourceKind } from "@muxory/shared";
+import { deriveOperationOutputPath, deriveOutputPath, extensionForResourceKind, inferResourceKind, isUrl } from "@muxory/shared";
 import type { JobRequest, PlanRequest, ResourceKind, Route } from "@muxory/shared";
 
 import { createError } from "../errors/muxory-error.js";
@@ -38,26 +38,67 @@ function resolveInputPath(input: string): string {
   return path.resolve(invocationCwd(), input);
 }
 
-function resolveOutputPath(output: string | undefined): string | undefined {
+function resolveOutputPath(
+  output: string | undefined,
+  input: string | string[],
+  to: ResourceKind
+): string | undefined {
   if (!output) {
-    return output;
+    return undefined;
   }
 
   const resolved = path.resolve(invocationCwd(), output);
 
-  try {
-    if (fs.statSync(resolved).isDirectory()) {
-      return undefined;
+  const isExistingDir = (() => {
+    try {
+      return fs.statSync(resolved).isDirectory();
+    } catch {
+      return false;
     }
-  } catch {
-    // Path does not exist yet — assume it is a file path.
+  })();
+
+  if (isExistingDir || output.endsWith("/") || output.endsWith(path.sep)) {
+    return deriveOutputInDir(resolved, input, to);
+  }
+
+  if (!path.extname(resolved)) {
+    return deriveOutputInDir(resolved, input, to);
   }
 
   return resolved;
 }
 
+function deriveOutputInDir(dir: string, input: string | string[], to: ResourceKind): string {
+  const first = Array.isArray(input) ? input[0] : input;
+  const ext = extensionForResourceKind(to);
+
+  if (isUrl(first)) {
+    try {
+      const parsed = new URL(first);
+      const name = parsed.searchParams.get("v")
+        || parsed.pathname.split("/").filter(Boolean).pop()
+        || "output";
+      return path.join(dir, `${name}${ext}`);
+    } catch {
+      return path.join(dir, `output${ext}`);
+    }
+  }
+
+  const filePath = path.parse(first);
+  return path.join(dir, `${filePath.name}${ext}`);
+}
+
 function normalizeInput(input: string | string[]): string | string[] {
   return Array.isArray(input) ? input.map(resolveInputPath) : resolveInputPath(input);
+}
+
+function ensureOutputDiffersFromInput(output: string, input: string | string[]): string {
+  const first = Array.isArray(input) ? input[0] : input;
+  if (path.resolve(output) === path.resolve(first)) {
+    const parsed = path.parse(output);
+    return path.join(parsed.dir, `${parsed.name}_compressed${parsed.ext}`);
+  }
+  return output;
 }
 
 export function normalizeRequest(
@@ -92,7 +133,10 @@ export function normalizeRequest(
       planRequest: {
         input: normalizedInput,
         from,
-        output: resolveOutputPath(request.output) ?? deriveOutputPath(normalizedInput, from),
+        output: ensureOutputDiffersFromInput(
+          resolveOutputPath(request.output, normalizedInput, from) ?? deriveOperationOutputPath(normalizedInput, from),
+          normalizedInput
+        ),
         operation: request.operation,
         options: request.options ?? {}
       }
@@ -120,7 +164,7 @@ export function normalizeRequest(
         input: normalizedInput,
         from,
         to,
-        output: resolveOutputPath(request.output) ?? deriveOutputPath(normalizedInput, to),
+        output: resolveOutputPath(request.output, normalizedInput, to) ?? deriveOutputPath(normalizedInput, to),
         options: request.options ?? {}
       }
     };

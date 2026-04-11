@@ -16,6 +16,9 @@
     "jina/src",
     "ytdlp/src",
     "whisper/src",
+    "jpegoptim/src",
+    "optipng/src",
+    "pngquant/src",
     "../shared/src",
     "../plugin-sdk/src"
   ]
