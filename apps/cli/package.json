@@ -1,0 +1,24 @@
+{
+  "name": "muxory-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "muxory": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@muxory/engine": "workspace:*",
+    "@muxory/server": "workspace:*",
+    "@muxory/shared": "workspace:*",
+    "commander": "^14.0.1",
+    "execa": "^9.6.0",
+    "prompts": "^2.4.2"
+  }
+}
+

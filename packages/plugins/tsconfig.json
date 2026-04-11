@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": [
+    "src",
+    "pandoc/src",
+    "libreoffice/src",
+    "ffmpeg/src",
+    "imagemagick/src",
+    "qpdf/src",
+    "trafilatura/src",
+    "markitdown/src",
+    "docling/src",
+    "jina/src",
+    "ytdlp/src",
+    "whisper/src",
+    "../shared/src",
+    "../plugin-sdk/src"
+  ]
+}

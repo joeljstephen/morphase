@@ -1,0 +1,11 @@
+node_modules
+dist
+.turbo
+.DS_Store
+coverage
+.pnpm-store
+.muxory-tmp
+tests/output
+tests/fixtures/generated
+apps/cli/tests/output
+

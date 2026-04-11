@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": ["src", "../../packages/shared/src", "../../packages/plugin-sdk/src", "../../packages/plugins/src", "../../packages/plugins/**/*.ts", "../../packages/engine/src", "../server/src"]
+}
+
