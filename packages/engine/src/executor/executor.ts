@@ -492,6 +492,25 @@ function isInsideTempDir(filePath: string, tempDirs: Set<string>): boolean {
   return [...tempDirs].some((directory) => filePath.startsWith(`${directory}${path.sep}`));
 }
 
+async function ensureParentDirectory(filePath: string): Promise<void> {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+}
+
+async function moveOutput(source: string, target: string): Promise<void> {
+  await ensureParentDirectory(target);
+
+  try {
+    await fs.rename(source, target);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EXDEV") {
+      throw error;
+    }
+
+    await fs.copyFile(source, target);
+    await fs.unlink(source);
+  }
+}
+
 export class Executor {
   constructor(private readonly logger: Logger) {}
 
@@ -540,8 +559,9 @@ export class Executor {
           logs.push(result.stderr);
         }
 
-        if (step.plan.stdoutFile && result.stdout) {
-          await fs.writeFile(step.plan.stdoutFile, result.stdout, "utf8");
+        if (step.plan.stdoutFile) {
+          await ensureParentDirectory(step.plan.stdoutFile);
+          await fs.writeFile(step.plan.stdoutFile, result.stdout ?? "", "utf8");
         }
 
         if (result.exitCode !== 0) {
@@ -556,8 +576,7 @@ export class Executor {
 
         if (step.plan.outputMapping?.length) {
           for (const mapping of step.plan.outputMapping) {
-            await fs.mkdir(path.dirname(mapping.target), { recursive: true });
-            await fs.rename(mapping.source, mapping.target);
+            await moveOutput(mapping.source, mapping.target);
             outputPaths.add(mapping.target);
           }
         }

@@ -54,7 +54,7 @@ export const qpdfPlugin: MorphasePlugin = definePlugin({
     return detectBinary(["qpdf"]);
   },
   async verify() {
-    return verifyBinary(["qpdf"]);
+    return verifyBinary(["qpdf"], ["--version"], "11.0.0");
   },
   getInstallHints(platform: Platform) {
     return installHintByPlatform(platform, installHints);

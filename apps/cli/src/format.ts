@@ -52,6 +52,14 @@ export function formatDoctorReport(report: BackendDoctorReport): string {
   const version = report.version ? `  ${dim}v${report.version}${reset}` : "";
   const lines: string[] = [`${bold}${report.name}${reset}  ${status}${version}`];
 
+  if (report.installed && !report.versionSupported && report.minimumVersion) {
+    lines.push(`  ${red}✗${reset} version ${report.version} is below minimum ${report.minimumVersion}`);
+    const updateCmd = report.updateHints[0]?.command;
+    if (updateCmd) {
+      lines.push(`  ${dim}Update:${reset} ${updateCmd}`);
+    }
+  }
+
   if (!report.installed && report.installHints.length) {
     const cmd = report.installHints[0]?.command;
     if (cmd) {
@@ -85,6 +93,10 @@ export function formatJobResult(result: JobResult): string {
 
     if (result.backendId) {
       lines.push(labeled("Via", result.backendId));
+    }
+
+    if (result.equivalentCommand) {
+      lines.push(labeled("Again", result.equivalentCommand));
     }
 
     if (result.warnings?.length) {

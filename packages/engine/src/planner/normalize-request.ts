@@ -62,7 +62,7 @@ function resolveOutputPath(
   }
 
   if (!path.extname(resolved)) {
-    return deriveOutputInDir(resolved, input, to);
+    return `${resolved}${extensionForResourceKind(to)}`;
   }
 
   return resolved;
@@ -92,13 +92,55 @@ function normalizeInput(input: string | string[]): string | string[] {
   return Array.isArray(input) ? input.map(resolveInputPath) : resolveInputPath(input);
 }
 
-function ensureOutputDiffersFromInput(output: string, input: string | string[]): string {
-  const first = Array.isArray(input) ? input[0] : input;
-  if (path.resolve(output) === path.resolve(first)) {
-    const parsed = path.parse(output);
-    return path.join(parsed.dir, `${parsed.name}_compressed${parsed.ext}`);
+function localInputs(input: string | string[]): string[] {
+  return (Array.isArray(input) ? input : [input]).filter((item) => !isUrl(item));
+}
+
+function ensureLocalInputsExist(input: string | string[]): void {
+  const missing = localInputs(input).filter((item) => !fs.existsSync(item));
+  if (missing.length === 0) {
+    return;
   }
-  return output;
+
+  throw createError({
+    code: "INVALID_INPUT",
+    message:
+      missing.length === 1
+        ? `Input file was not found: ${missing[0]}`
+        : `Some input files were not found: ${missing.join(", ")}`,
+    suggestedFixes: [
+      "Check the file path and current working directory.",
+      "Pass an absolute path if the file is outside the current directory."
+    ]
+  });
+}
+
+function outputMatchesInput(output: string, input: string | string[]): boolean {
+  return localInputs(input).some((item) => path.resolve(output) === path.resolve(item));
+}
+
+function assertSafeOutputPath(output: string, input: string | string[], force = false): void {
+  if (outputMatchesInput(output, input)) {
+    throw createError({
+      code: "INVALID_INPUT",
+      message: "Output path must differ from the input path.",
+      suggestedFixes: [
+        "Choose a different output path.",
+        "Omit -o/--output to let morphase derive a safe default."
+      ]
+    });
+  }
+
+  if (!force && fs.existsSync(output)) {
+    throw createError({
+      code: "OUTPUT_EXISTS",
+      message: `Refusing to overwrite existing output: ${output}`,
+      suggestedFixes: [
+        "Pass --force to overwrite the existing file.",
+        "Choose a different output path."
+      ]
+    });
+  }
 }
 
 export function normalizeRequest(
@@ -112,6 +154,7 @@ export function normalizeRequest(
   };
 } {
   const normalizedInput = normalizeInput(request.input);
+  ensureLocalInputsExist(normalizedInput);
   const from = request.from ?? inferResourceKind(Array.isArray(normalizedInput) ? normalizedInput[0] : normalizedInput);
   const to = request.to;
 
@@ -124,6 +167,19 @@ export function normalizeRequest(
       });
     }
 
+    const output = request.output
+      ? resolveOutputPath(request.output, normalizedInput, from)
+      : deriveOperationOutputPath(normalizedInput, from);
+
+    if (!output) {
+      throw createError({
+        code: "INVALID_INPUT",
+        message: "morphase could not determine an output path for this operation."
+      });
+    }
+
+    assertSafeOutputPath(output, normalizedInput, request.force);
+
     return {
       route: {
         kind: "operation",
@@ -133,10 +189,7 @@ export function normalizeRequest(
       planRequest: {
         input: normalizedInput,
         from,
-        output: ensureOutputDiffersFromInput(
-          resolveOutputPath(request.output, normalizedInput, from) ?? deriveOperationOutputPath(normalizedInput, from),
-          normalizedInput
-        ),
+        output,
         operation: request.operation,
         options: request.options ?? {}
       }
@@ -154,20 +207,23 @@ export function normalizeRequest(
     });
   }
 
+  const output = resolveOutputPath(request.output, normalizedInput, to) ?? deriveOutputPath(normalizedInput, to);
+  assertSafeOutputPath(output, normalizedInput, request.force);
+
   return {
-      route: {
-        kind: "conversion",
-        from,
-        to
-      },
-      planRequest: {
-        input: normalizedInput,
-        from,
-        to,
-        output: resolveOutputPath(request.output, normalizedInput, to) ?? deriveOutputPath(normalizedInput, to),
-        options: request.options ?? {}
-      }
-    };
+    route: {
+      kind: "conversion",
+      from,
+      to
+    },
+    planRequest: {
+      input: normalizedInput,
+      from,
+      to,
+      output,
+      options: request.options ?? {}
+    }
+  };
 }
 
 export function toPlanRequest(

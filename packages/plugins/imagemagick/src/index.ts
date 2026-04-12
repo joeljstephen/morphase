@@ -50,12 +50,12 @@ export const imageMagickPlugin: MorphasePlugin = definePlugin({
     return detectBinary(["magick", "convert"], ["-version"]);
   },
   async verify() {
-    const basic = await verifyBinary(["magick", "convert"], ["-version"]);
+    const basic = await verifyBinary(["magick", "convert"], ["-version"], "7.0.0");
     if (!basic.ok) {
       return basic;
     }
 
-    const warnings: string[] = [];
+    const warnings: string[] = basic.warnings;
     if (!(await supportsImageMagickFormat("HEIC"))) {
       warnings.push("HEIC delegate support was not detected. HEIC routes are best effort.");
     }

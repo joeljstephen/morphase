@@ -1,13 +1,13 @@
 import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, verifyBinary } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "brew install optipng",
-  "sudo apt-get install optipng",
-  "sudo apt-get install optipng"
-);
+const installHints = {
+  macos: { manager: "brew" as const, command: "brew install optipng" },
+  windows: { manager: "manual" as const, notes: ["Install optipng manually or via WSL."] },
+  linux: { manager: "apt-get" as const, command: "sudo apt-get install optipng" }
+};
 
 export const optipngPlugin: MorphasePlugin = definePlugin({
   id: "optipng",

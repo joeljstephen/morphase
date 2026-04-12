@@ -3,6 +3,8 @@ import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morph
 
 import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
 
+const MINIMUM_VERSION = "6.0.0";
+
 const installHints = packageHints(
   "brew install ffmpeg",
   "winget install Gyan.FFmpeg",
@@ -15,7 +17,7 @@ export const ffmpegPlugin: MorphasePlugin = definePlugin({
   id: "ffmpeg",
   name: "FFmpeg",
   priority: 100,
-  minimumVersion: "6.0.0",
+  minimumVersion: MINIMUM_VERSION,
   commonProblems: [
     "Some codecs may be unavailable in minimal FFmpeg builds.",
     "Lossy transcoding routes reduce fidelity."
@@ -87,7 +89,7 @@ export const ffmpegPlugin: MorphasePlugin = definePlugin({
     return detectBinary(["ffmpeg"], ["-version"]);
   },
   async verify() {
-    return verifyBinary(["ffmpeg"], ["-version"]);
+    return verifyBinary(["ffmpeg"], ["-version"], MINIMUM_VERSION);
   },
   getInstallHints(platform: Platform) {
     return installHintByPlatform(platform, installHints);

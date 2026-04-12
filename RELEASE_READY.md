@@ -115,7 +115,6 @@ Before tagging v0.1.0, verify every item below.
 
 - [ ] `pnpm build` passes with zero errors
 - [ ] `pnpm typecheck` passes with zero errors
-- [ ] `pnpm lint` passes with zero errors
 
 ### Tests
 
@@ -166,7 +165,7 @@ Before tagging v0.1.0, verify every item below.
 
 4. **No batch processing.** Each command handles one job at a time. Multi-file and directory-level processing are planned for a future release.
 
-5. **Server mode has no auth.** `morphase serve` binds to localhost only, but has no authentication, rate limiting, or TLS. Do not expose it to a network without a reverse proxy.
+5. **Server mode has no auth.** `morphase serve` binds to localhost only unless you explicitly pass `--allow-remote`, and it has no authentication, rate limiting, or TLS. Do not expose it to a network without a reverse proxy.
 
 6. **`backend install --run` and `backend update --run` require confirmation.** They delegate to the system package manager. The printed command is shown before execution, but there is no dry-run for the delegated install itself.
 

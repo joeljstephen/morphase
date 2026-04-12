@@ -107,6 +107,7 @@ All conversion commands accept:
 | `--offline` | Only use offline-capable backends |
 | `--debug` | Enable debug logging |
 | `--dry-run` | Plan the job without executing it |
+| `--force` | Overwrite an existing output path |
 
 ## Stable vs. Experimental
 
@@ -166,11 +167,13 @@ morphase backend verify ffmpeg
 # Get an install hint for a missing backend
 morphase backend install ffmpeg
 
-# Run the install command (with confirmation prompt)
+# Run the install command (with confirmation prompt and config opt-in)
 morphase backend install ffmpeg --run
 ```
 
 `morphase doctor` reports on every backend: whether it's installed, which version, if it meets the minimum version requirement, verification issues, and platform-specific install instructions.
+
+`backend install --run` and `backend update --run` are disabled by default. Enable them explicitly by setting `"allowPackageManagerDelegation": true` in `~/.morphase/config.json`.
 
 ### Previewing Plans
 

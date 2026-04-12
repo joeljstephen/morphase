@@ -20,6 +20,7 @@ function createPlugin(plugin: Partial<MorphasePlugin> & Pick<MorphasePlugin, "id
     id: plugin.id,
     name: plugin.name,
     priority: plugin.priority,
+    minimumVersion: plugin.minimumVersion,
     capabilities: plugin.capabilities ?? (() => []),
     detect: plugin.detect ?? (async () => ({ installed: true, command: plugin.id })),
     verify: plugin.verify ?? (async () => ({ ok: true, issues: [], warnings: [] })),
@@ -478,5 +479,211 @@ describe("Planner", () => {
     const plan = await planner.plan(request);
     expect(plan.equivalentCommand).toContain("morphase fetch");
     expect(plan.equivalentCommand).toContain("--to markdown");
+  });
+
+  it("downgrades a backend whose version is below minimumVersion", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "ffmpeg-old",
+        name: "FFmpeg Old",
+        priority: 100,
+        minimumVersion: "6.0.0",
+        capabilities: () => [
+          {
+            kind: "convert",
+            from: "wav",
+            to: "mp3",
+            quality: "medium",
+            offline: true,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        detect: async () => ({ installed: true, version: "4.2.1", command: "ffmpeg" }),
+        verify: async () => ({ ok: true, issues: [], warnings: [] }),
+        plan: async (request) => ({
+          command: "ffmpeg",
+          args: ["-i", String(request.input), request.output ?? "/tmp/out.mp3"],
+          expectedOutputs: [request.output ?? "/tmp/out.mp3"]
+        })
+      }),
+      createPlugin({
+        id: "ffmpeg-new",
+        name: "FFmpeg New",
+        priority: 90,
+        minimumVersion: "6.0.0",
+        capabilities: () => [
+          {
+            kind: "convert",
+            from: "wav",
+            to: "mp3",
+            quality: "medium",
+            offline: true,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        detect: async () => ({ installed: true, version: "7.0.0", command: "ffmpeg" }),
+        verify: async () => ({ ok: true, issues: [], warnings: [] }),
+        plan: async (request) => ({
+          command: "ffmpeg",
+          args: ["-i", String(request.input), request.output ?? "/tmp/out.mp3"],
+          expectedOutputs: [request.output ?? "/tmp/out.mp3"]
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const request: PlanRequest = {
+      input: "audio.wav",
+      from: "wav",
+      to: "mp3",
+      output: "audio.mp3",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "wav",
+        to: "mp3"
+      }
+    };
+
+    const plan = await planner.plan(request);
+    expect(plan.selectedPluginId).toBe("ffmpeg-new");
+  });
+
+  it("falls back to a below-minimum backend when no alternative exists", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "ffmpeg",
+        name: "FFmpeg",
+        priority: 100,
+        minimumVersion: "6.0.0",
+        capabilities: () => [
+          {
+            kind: "convert",
+            from: "wav",
+            to: "mp3",
+            quality: "medium",
+            offline: true,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        detect: async () => ({ installed: true, version: "4.2.1", command: "ffmpeg" }),
+        verify: async () => ({ ok: true, issues: [], warnings: [] }),
+        plan: async (request) => ({
+          command: "ffmpeg",
+          args: ["-i", String(request.input), request.output ?? "/tmp/out.mp3"],
+          expectedOutputs: [request.output ?? "/tmp/out.mp3"]
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const request: PlanRequest = {
+      input: "audio.wav",
+      from: "wav",
+      to: "mp3",
+      output: "audio.mp3",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "wav",
+        to: "mp3"
+      }
+    };
+
+    const plan = await planner.plan(request);
+    expect(plan.selectedPluginId).toBe("ffmpeg");
+    expect(plan.explanation).toContain("below minimum");
+  });
+
+  it("uses the image command shape for image compression equivalents", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "jpegoptim",
+        name: "jpegoptim",
+        priority: 100,
+        capabilities: () => [
+          {
+            kind: "transform",
+            from: "jpg",
+            to: null,
+            operation: "compress",
+            quality: "high",
+            offline: true,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        plan: async (request) => ({
+          command: "jpegoptim",
+          args: [String(request.input)],
+          expectedOutputs: [request.output ?? "/tmp/out.jpg"]
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const plan = await planner.plan({
+      input: "photo.jpg",
+      from: "jpg",
+      operation: "compress",
+      output: "photo-compressed.jpg",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "operation",
+        resource: "jpg",
+        action: "compress"
+      }
+    });
+
+    expect(plan.equivalentCommand).toBe("morphase image compress photo.jpg -o photo-compressed.jpg");
+  });
+
+  it("uses the pdf command shape for pdf operations", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "qpdf",
+        name: "qpdf",
+        priority: 100,
+        capabilities: () => [
+          {
+            kind: "transform",
+            from: "pdf",
+            to: null,
+            operation: "split",
+            quality: "high",
+            offline: true,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        plan: async (request) => ({
+          command: "qpdf",
+          args: [String(request.input)],
+          expectedOutputs: [request.output ?? "/tmp/out.pdf"]
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const plan = await planner.plan({
+      input: "report.pdf",
+      from: "pdf",
+      operation: "split",
+      output: "excerpt.pdf",
+      options: { pages: "1-3" },
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "operation",
+        resource: "pdf",
+        action: "split"
+      }
+    });
+
+    expect(plan.equivalentCommand).toBe("morphase pdf split report.pdf --pages 1-3 -o excerpt.pdf");
   });
 });

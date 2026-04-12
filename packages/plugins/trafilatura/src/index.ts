@@ -46,7 +46,7 @@ export const trafilaturaPlugin: MorphasePlugin = definePlugin({
     return detectBinary(["trafilatura"], ["--version"]);
   },
   async verify() {
-    return verifyBinary(["trafilatura"], ["--version"]);
+    return verifyBinary(["trafilatura"], ["--version"], "1.9.0");
   },
   getInstallHints(platform: Platform) {
     return installHintByPlatform(platform, installHints);

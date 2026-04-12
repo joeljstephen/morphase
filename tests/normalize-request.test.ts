@@ -1,8 +1,30 @@
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { normalizeRequest } from "../packages/engine/src/planner/normalize-request.js";
 
 describe("normalizeRequest", () => {
+  const originalCwd = process.env.MORPHASE_CWD;
+  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "morphase-normalize-"));
+
+  beforeAll(() => {
+    process.env.MORPHASE_CWD = fixtureDir;
+    fs.writeFileSync(path.join(fixtureDir, "slides.pptx"), "");
+    fs.writeFileSync(path.join(fixtureDir, "notes.md"), "");
+  });
+
+  afterAll(() => {
+    if (originalCwd === undefined) {
+      delete process.env.MORPHASE_CWD;
+    } else {
+      process.env.MORPHASE_CWD = originalCwd;
+    }
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+  });
+
   it("infers conversion routes from file extensions", () => {
     const normalized = normalizeRequest(
       {
@@ -96,5 +118,45 @@ describe("normalizeRequest", () => {
       from: "youtube-url",
       to: "mp3"
     });
+  });
+
+  it("treats an output without an extension as a file stem", () => {
+    const normalized = normalizeRequest(
+      {
+        input: "notes.md",
+        to: "docx",
+        output: "release-notes"
+      },
+      { offlineOnly: false }
+    );
+
+    expect(normalized.planRequest.output).toBe(path.join(fixtureDir, "release-notes.docx"));
+  });
+
+  it("rejects missing local files early", () => {
+    expect(() =>
+      normalizeRequest(
+        {
+          input: "missing.pdf",
+          to: "txt"
+        },
+        { offlineOnly: false }
+      )
+    ).toThrow(/Input file was not found/);
+  });
+
+  it("refuses to overwrite an existing output unless forced", () => {
+    fs.writeFileSync(path.join(fixtureDir, "existing.docx"), "");
+
+    expect(() =>
+      normalizeRequest(
+        {
+          input: "notes.md",
+          to: "docx",
+          output: "existing.docx"
+        },
+        { offlineOnly: false }
+      )
+    ).toThrow(/Refusing to overwrite existing output/);
   });
 });

@@ -61,7 +61,7 @@ export const libreOfficePlugin: MorphasePlugin = definePlugin({
     return detectBinary(["soffice", "libreoffice"]);
   },
   async verify() {
-    return verifyBinary(["soffice", "libreoffice"]);
+    return verifyBinary(["soffice", "libreoffice"], ["--version"], "7.0.0");
   },
   getInstallHints(platform: Platform) {
     return installHintByPlatform(platform, installHints);

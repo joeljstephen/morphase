@@ -4,6 +4,7 @@ import path from "node:path";
 
 import {
   ROUTE_PREFERENCES,
+  compareSemver,
   extensionForResourceKind,
   routeKey,
   type Capability,
@@ -33,6 +34,19 @@ function equivalentCommandForRequest(request: PlanRequest): string {
       request.route.action === "split" && typeof request.options.pages === "string"
         ? ` --pages ${request.options.pages}`
         : "";
+
+    if (request.route.resource === "pdf") {
+      return `morphase pdf ${request.route.action} ${printableInput}${optionSuffix}${output ? ` -o ${output}` : ""}`.trim();
+    }
+
+    if (request.route.action === "compress" && ["jpg", "png", "webp", "heic"].includes(request.route.resource)) {
+      return `morphase image compress ${printableInput}${output ? ` -o ${output}` : ""}`.trim();
+    }
+
+    if (request.route.action === "compress" && ["mp4", "mov", "mkv"].includes(request.route.resource)) {
+      return `morphase video compress ${printableInput}${output ? ` -o ${output}` : ""}`.trim();
+    }
+
     return `morphase ${request.route.resource} ${request.route.action} ${printableInput}${optionSuffix}${output ? ` -o ${output}` : ""}`.trim();
   }
 
@@ -93,6 +107,10 @@ function scoreCandidate(
 
   if (candidate.detection.installed && !candidate.verification.ok) {
     score -= 30;
+  }
+
+  if (candidate.installed && !candidate.versionSupported) {
+    score -= 50;
   }
 
   return score;
@@ -234,10 +252,19 @@ export class Planner {
         ? await plugin.verify(request.platform)
         : { ok: false, issues: [detection.reason ?? `${plugin.name} is not installed.`], warnings: [] };
 
+      let versionSupported = true;
+      if (detection.installed && detection.version && plugin.minimumVersion) {
+        versionSupported = compareSemver(detection.version, plugin.minimumVersion) >= 0;
+      }
+
       const explanation = [`${plugin.name} matches ${routeKey(request.route)}.`];
 
       if (preferences.includes(plugin.id)) {
         explanation.push(`${plugin.name} is preferred for this route.`);
+      }
+
+      if (!versionSupported && detection.version && plugin.minimumVersion) {
+        explanation.push(`${plugin.name} version ${detection.version} is below minimum required ${plugin.minimumVersion}.`);
       }
 
       if (!capability.offline) {
@@ -251,6 +278,7 @@ export class Planner {
         verification,
         installed: detection.installed,
         verified: verification.ok,
+        versionSupported,
         explanation,
         score: 0
       });

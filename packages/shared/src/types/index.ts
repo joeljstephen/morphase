@@ -153,6 +153,7 @@ export type JobRequest = {
   interactive?: boolean;
   debug?: boolean;
   dryRun?: boolean;
+  force?: boolean;
   keepTemp?: boolean;
 };
 
@@ -188,6 +189,7 @@ export type BackendDoctorReport = {
   installed: boolean;
   version?: string;
   minimumVersion?: string;
+  versionSupported: boolean;
   command?: string;
   verified: boolean;
   issues: string[];
@@ -203,6 +205,7 @@ export type PlannerCandidate = {
   explanation: string[];
   installed: boolean;
   verified: boolean;
+  versionSupported: boolean;
   detection: DetectionResult;
   verification: VerificationResult;
   capability: Capability;
@@ -234,4 +237,3 @@ export interface MorphasePlugin {
   plan(request: PlanRequest): Promise<ExecutionPlan | null>;
   explain(request: PlanRequest): Promise<string>;
 }
-

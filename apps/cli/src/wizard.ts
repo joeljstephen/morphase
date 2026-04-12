@@ -2,7 +2,7 @@ import path from "node:path";
 
 import prompts from "prompts";
 
-import { deriveOutputPath, inferResourceKind, isMediaUrl, isUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@morphase/shared";
+import { deriveOperationOutputPath, deriveOutputPath, inferResourceKind, isMediaUrl, isUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@morphase/shared";
 
 const BACK = "__back__" as const;
 
@@ -176,7 +176,7 @@ async function handleDownloadCategory(): Promise<WizardStepResult> {
 
   const isYT = isYoutubeUrl(urlAnswer.input);
   const isMedia = isMediaUrl(urlAnswer.input);
-  if (!isYT && !isMedia && !isUrl(urlAnswer.input)) {
+  if (!isYT && !isMedia) {
     return null;
   }
 
@@ -238,6 +238,10 @@ async function handleWebCategory(): Promise<WizardStepResult> {
   });
 
   if (!urlAnswer.input) {
+    return null;
+  }
+
+  if (!isUrl(urlAnswer.input)) {
     return null;
   }
 
@@ -323,7 +327,7 @@ async function handleRouteCategory(
 
   if (selected.operation === "compress") {
     const resourceFrom = from ?? inferResourceKind(inputAnswer.input) ?? "mp4";
-    const suggestedOutput = path.resolve(deriveOutputPath(inputAnswer.input, resourceFrom));
+    const suggestedOutput = path.resolve(deriveOperationOutputPath(inputAnswer.input, resourceFrom));
     const output = await askOutputPath(suggestedOutput);
 
     if (!output) {

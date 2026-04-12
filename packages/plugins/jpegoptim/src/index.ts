@@ -3,13 +3,13 @@ import path from "node:path";
 import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, verifyBinary } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "brew install jpegoptim",
-  "sudo apt-get install jpegoptim",
-  "sudo apt-get install jpegoptim"
-);
+const installHints = {
+  macos: { manager: "brew" as const, command: "brew install jpegoptim" },
+  windows: { manager: "manual" as const, notes: ["Install jpegoptim manually or via WSL."] },
+  linux: { manager: "apt-get" as const, command: "sudo apt-get install jpegoptim" }
+};
 
 export const jpegoptimPlugin: MorphasePlugin = definePlugin({
   id: "jpegoptim",

@@ -4,7 +4,7 @@ import { execa } from "execa";
 import prompts from "prompts";
 
 import { MorphaseEngine } from "@morphase/engine";
-import { createMorphaseServer } from "@morphase/server";
+import { createMorphaseServer, validateServerHost } from "@morphase/server";
 import { inferResourceKind, isMediaUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@morphase/shared";
 
 import { formatCliError, formatDoctorReport, formatJobResult } from "./format.js";
@@ -16,18 +16,33 @@ function collectCommonOptions(command: Command): Command {
     .option("--backend <backend>", "Prefer a specific backend")
     .option("--offline", "Require an offline-capable backend", false)
     .option("--debug", "Enable debug logging", false)
-    .option("--dry-run", "Plan the job without executing it", false);
+    .option("--dry-run", "Plan the job without executing it", false)
+    .option("--force", "Overwrite an existing output path", false);
 }
 
 function buildRequest(options: Record<string, unknown>, partial: JobRequest): JobRequest {
   return {
     ...partial,
-    from: (options.from as ResourceKind | undefined) ?? partial.from,
+    from: partial.from ?? (options.from as ResourceKind | undefined),
     backendPreference: options.backend as string | undefined,
     offlineOnly: (options.offline as boolean | undefined) ?? partial.offlineOnly,
     debug: (options.debug as boolean | undefined) ?? partial.debug,
-    dryRun: (options.dryRun as boolean | undefined) ?? partial.dryRun
+    dryRun: (options.dryRun as boolean | undefined) ?? partial.dryRun,
+    force: (options.force as boolean | undefined) ?? partial.force
   };
+}
+
+function tokenizeCommand(command: string): string[] {
+  const matches = command.match(/"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^\s]+/g) ?? [];
+  return matches.map((token) =>
+    token.startsWith("\"") || token.startsWith("'")
+      ? token.slice(1, -1)
+      : token
+  );
+}
+
+function containsShellOperators(command: string): boolean {
+  return /(^|[\s])(?:&&|\|\||\||;)(?=[\s]|$)/.test(command);
 }
 
 async function handleJob(engine: MorphaseEngine, request: JobRequest, options?: { setExitCode?: boolean }) {
@@ -67,6 +82,9 @@ async function printExplain(engine: MorphaseEngine, request: JobRequest) {
   if (plan.warnings.length) {
     console.log(lbl("Notes", plan.warnings.join(" · ")));
   }
+  if (plan.equivalentCommand) {
+    console.log(lbl("CLI", plan.equivalentCommand));
+  }
   console.log("");
 }
 
@@ -91,6 +109,18 @@ async function printBackendHints(
     return;
   }
 
+  if (!engine.getConfig().allowPackageManagerDelegation) {
+    throw new Error(
+      "Package-manager delegation is disabled. Set allowPackageManagerDelegation=true in ~/.morphase/config.json before using --run."
+    );
+  }
+
+  if (containsShellOperators(command)) {
+    throw new Error(
+      "Morphase will not execute compound install commands automatically. Run the printed command manually."
+    );
+  }
+
   const confirmation = await prompts({
     type: "confirm",
     name: "ok",
@@ -102,17 +132,20 @@ async function printBackendHints(
     return;
   }
 
-  await execa(command, {
-    shell: true,
-    stdio: "inherit"
-  });
+  const tokens = tokenizeCommand(command);
+  if (tokens.length === 0) {
+    throw new Error(`Could not parse delegated ${mode} command: ${command}`);
+  }
+
+  const [file, ...args] = tokens;
+  await execa(file, args, { stdio: "inherit" });
 }
 
 async function main() {
   const engine = await MorphaseEngine.create();
   const program = new Command();
 
-  program.name("morphase").description("Local-first open-source conversion router — download from YouTube, Instagram, TikTok, Facebook, Twitter/X, and 1800+ sites");
+  program.name("morphase").description("Local-first open-source conversion router for files, media, PDFs, and web content");
 
   collectCommonOptions(
     program.command("convert <input> <output>").description("Convert a file from one format to another")
@@ -156,7 +189,7 @@ async function main() {
   collectCommonOptions(program.command("fetch <url>").description("Fetch a URL into another format"))
     .requiredOption("--to <format>", "Desired output format")
     .option("-o, --output <path>", "Output path")
-    .option("--format <format>", "Output format: text or markdown (default: text)")
+    .option("--format <format>", "Transcript format for --to transcript: text or markdown")
     .action(async (url, options) => {
       try {
         const from: ResourceKind | undefined = isYoutubeUrl(url) ? "youtube-url" : isMediaUrl(url) ? "media-url" : "url";
@@ -197,18 +230,22 @@ async function main() {
 
   const image = program.command("image").description("Image operations");
 
-  image
-    .command("compress <input>")
-    .option("-o, --output <path>", "Output path")
+  collectCommonOptions(
+    image.command("compress <input>").option("-o, --output <path>", "Output path")
+  )
     .action(async (input, options) => {
       try {
         const from = inferResourceKind(input) ?? "jpg";
-        await handleJob(engine, {
-          input,
-          from,
-          operation: "compress",
-          output: options.output as string | undefined
-        }, { setExitCode: true });
+        await handleJob(
+          engine,
+          buildRequest(options, {
+            input,
+            from,
+            operation: "compress",
+            output: options.output as string | undefined
+          }),
+          { setExitCode: true }
+        );
       } catch (error) {
         console.log(formatCliError(error));
       }
@@ -216,18 +253,22 @@ async function main() {
 
   const video = program.command("video").description("Video operations");
 
-  video
-    .command("compress <input>")
-    .option("-o, --output <path>", "Output path")
+  collectCommonOptions(
+    video.command("compress <input>").option("-o, --output <path>", "Output path")
+  )
     .action(async (input, options) => {
       try {
         const from = inferResourceKind(input) ?? "mp4";
-        await handleJob(engine, {
-          input,
-          from,
-          operation: "compress",
-          output: options.output as string | undefined
-        }, { setExitCode: true });
+        await handleJob(
+          engine,
+          buildRequest(options, {
+            input,
+            from,
+            operation: "compress",
+            output: options.output as string | undefined
+          }),
+          { setExitCode: true }
+        );
       } catch (error) {
         console.log(formatCliError(error));
       }
@@ -235,51 +276,65 @@ async function main() {
 
   const pdf = program.command("pdf").description("PDF operations");
 
-  pdf
-    .command("merge <inputs...>")
-    .requiredOption("-o, --output <path>", "Output PDF")
+  collectCommonOptions(
+    pdf.command("merge <inputs...>").requiredOption("-o, --output <path>", "Output PDF")
+  )
     .action(async (inputs, options) => {
       try {
-        await handleJob(engine, {
-          input: inputs,
-          from: "pdf",
-          operation: "merge",
-          output: options.output as string
-        }, { setExitCode: true });
+        await handleJob(
+          engine,
+          buildRequest(options, {
+            input: inputs,
+            from: "pdf",
+            operation: "merge",
+            output: options.output as string
+          }),
+          { setExitCode: true }
+        );
       } catch (error) {
         console.log(formatCliError(error));
       }
     });
 
-  pdf
-    .command("split <input>")
-    .requiredOption("--pages <range>", "Page range to extract, for example 1-3,5")
-    .requiredOption("-o, --output <path>", "Output PDF")
+  collectCommonOptions(
+    pdf
+      .command("split <input>")
+      .requiredOption("--pages <range>", "Page range to extract, for example 1-3,5")
+      .requiredOption("-o, --output <path>", "Output PDF")
+  )
     .action(async (input, options) => {
       try {
-        await handleJob(engine, {
-          input,
-          from: "pdf",
-          operation: "split",
-          output: options.output as string,
-          options: { pages: options.pages }
-        }, { setExitCode: true });
+        await handleJob(
+          engine,
+          buildRequest(options, {
+            input,
+            from: "pdf",
+            operation: "split",
+            output: options.output as string,
+            options: { pages: options.pages }
+          }),
+          { setExitCode: true }
+        );
       } catch (error) {
         console.log(formatCliError(error));
       }
     });
 
-  pdf
-    .command("optimize <input>")
-    .requiredOption("-o, --output <path>", "Output PDF")
+  collectCommonOptions(
+    pdf.command("optimize <input>").requiredOption("-o, --output <path>", "Output PDF")
+  )
     .action(async (input, options) => {
       try {
-        await handleJob(engine, {
-          input,
-          from: "pdf",
-          operation: "optimize",
-          output: options.output as string
-        }, { setExitCode: true });
+        await handleJob(
+          engine,
+          buildRequest(options, {
+            input,
+            from: "pdf",
+            operation: "optimize",
+            output: options.output as string
+          }),
+          { setExitCode: true }
+        );
       } catch (error) {
         console.log(formatCliError(error));
       }
@@ -303,6 +358,7 @@ async function main() {
     try {
       const reports = await engine.doctorAll();
       const dim = "\x1b[2m";
+      const yellow = "\x1b[33m";
       const green = "\x1b[32m";
       const red = "\x1b[31m";
       const reset = "\x1b[0m";
@@ -310,9 +366,16 @@ async function main() {
       console.log(`${dim}Backends${reset}`);
       console.log("");
       for (const report of reports) {
-        const icon = report.installed ? `${green}✓${reset}` : `${red}✗${reset}`;
+        const icon = report.installed
+          ? report.versionSupported
+            ? `${green}✓${reset}`
+            : `${yellow}⚠${reset}`
+          : `${red}✗${reset}`;
         const ver = report.version ? ` ${dim}v${report.version}${reset}` : "";
-        console.log(`  ${icon}  ${report.name}${ver}`);
+        const versionNote = report.installed && !report.versionSupported && report.minimumVersion
+          ? ` ${yellow}(needs ≥${report.minimumVersion})${reset}`
+          : "";
+        console.log(`  ${icon}  ${report.name}${ver}${versionNote}`);
       }
       console.log("");
     } catch (error) {
@@ -384,10 +447,14 @@ async function main() {
     .description("[experimental] Start a local HTTP API server")
     .option("--host <host>", "Host to bind to")
     .option("--port <port>", "Port to bind to", (value) => Number(value))
+    .option("--allow-remote", "Allow binding to a non-loopback host", false)
     .action(async (options) => {
       try {
         const { app } = await createMorphaseServer(engine);
-        const host = (options.host as string | undefined) ?? engine.getConfig().server.host;
+        const host = validateServerHost(
+          (options.host as string | undefined) ?? engine.getConfig().server.host,
+          options.allowRemote as boolean
+        );
         const port = (options.port as number | undefined) ?? engine.getConfig().server.port;
         await app.listen({ host, port });
         console.log(`morphase server listening on http://${host}:${port}`);

@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { detectFirstAvailableCommand } from "@morphase/plugin-sdk";
-import { parseFirstSemver, runCommandCapture, type DetectionResult, type ExecutionPlan, type InstallHint, type Platform } from "@morphase/shared";
+import { compareSemver, parseFirstSemver, runCommandCapture, type DetectionResult, type ExecutionPlan, type InstallHint, type Platform } from "@morphase/shared";
 
 export async function detectBinary(
   commands: string[],
@@ -29,7 +29,8 @@ export function packageHints(
 
 export async function verifyBinary(
   commands: string[],
-  args: string[] = ["--version"]
+  args: string[] = ["--version"],
+  minimumVersion?: string
 ): Promise<{ ok: boolean; warnings: string[]; issues: string[] }> {
   const detection = await detectBinary(commands, args);
   if (!detection.installed) {
@@ -40,10 +41,22 @@ export async function verifyBinary(
     };
   }
 
+  const warnings: string[] = [];
+  const issues: string[] = [];
+
+  if (minimumVersion && detection.version) {
+    if (compareSemver(detection.version, minimumVersion) < 0) {
+      issues.push(
+        `Installed version ${detection.version} is below minimum required ${minimumVersion}.`
+      );
+      return { ok: false, warnings, issues };
+    }
+  }
+
   return {
     ok: true,
-    warnings: [],
-    issues: []
+    warnings,
+    issues
   };
 }
 

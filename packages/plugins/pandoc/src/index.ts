@@ -77,7 +77,7 @@ export const pandocPlugin: MorphasePlugin = definePlugin({
     return detectBinary(["pandoc"]);
   },
   async verify() {
-    return verifyBinary(["pandoc"]);
+    return verifyBinary(["pandoc"], ["--version"], "3.0.0");
   },
   getInstallHints(platform: Platform) {
     return installHintByPlatform(platform, installHints);
