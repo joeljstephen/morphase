@@ -48,18 +48,26 @@ async function handleJob(engine: MuxoryEngine, request: JobRequest, options?: { 
 async function printExplain(engine: MuxoryEngine, request: JobRequest) {
   const plan = await engine.explain(request);
   const dim = "\x1b[2m";
+  const bold = "\x1b[1m";
   const reset = "\x1b[0m";
-  console.log(`${dim}Backend:${reset} ${plan.selectedPluginId}`);
-  console.log(`${dim}Plan:${reset}   ${plan.explanation}`);
-  if (plan.installNeeded) {
-    console.log(`${dim}Note:${reset}    Installation required before running.`);
+  function lbl(label: string, value: string) {
+    return `    ${dim}${label.padEnd(8)}${reset} ${value}`;
   }
-  if (plan.warnings.length) {
-    console.log(`${dim}Notes:${reset}   ${plan.warnings.join(" · ")}`);
+
+  console.log("");
+  console.log(`  ${bold}Plan${reset}`);
+  console.log(lbl("Using", plan.selectedPluginId));
+  console.log(lbl("Detail", plan.explanation));
+  if (plan.installNeeded) {
+    console.log(lbl("Note", "Installation required before running."));
   }
   if (plan.fallbacks.length) {
-    console.log(`${dim}Fallbacks:${reset} ${plan.fallbacks.join(", ")}`);
+    console.log(lbl("Alt", plan.fallbacks.join(", ")));
   }
+  if (plan.warnings.length) {
+    console.log(lbl("Notes", plan.warnings.join(" · ")));
+  }
+  console.log("");
 }
 
 async function printBackendHints(
@@ -294,15 +302,19 @@ async function main() {
   backend.command("list").action(async () => {
     try {
       const reports = await engine.doctorAll();
+      const dim = "\x1b[2m";
       const green = "\x1b[32m";
       const red = "\x1b[31m";
-      const dim = "\x1b[2m";
       const reset = "\x1b[0m";
+      console.log("");
+      console.log(`${dim}Backends${reset}`);
+      console.log("");
       for (const report of reports) {
         const icon = report.installed ? `${green}✓${reset}` : `${red}✗${reset}`;
         const ver = report.version ? ` ${dim}v${report.version}${reset}` : "";
-        console.log(`${icon}  ${report.name}${ver}`);
+        console.log(`  ${icon}  ${report.name}${ver}`);
       }
+      console.log("");
     } catch (error) {
       console.log(formatCliError(error));
     }
@@ -393,19 +405,21 @@ async function main() {
       const plan = await engine.explain(request);
       if (plan.installNeeded) {
         const report = await engine.doctorBackend(plan.selectedPluginId);
+        console.log("");
         console.log(formatDoctorReport(report));
-        console.log(`\nInstall the backend above and try again.`);
+        console.log(`\n  Install the backend above and try again.`);
         return;
       }
 
       const confirmation = await prompts({
         type: "confirm",
         name: "ok",
-        message: "Run this job now?",
+        message: "Run this now?",
         initial: true
       });
 
       if (!confirmation.ok) {
+        console.log("Cancelled.");
         return;
       }
 

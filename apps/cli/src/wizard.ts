@@ -9,12 +9,12 @@ const BACK = "__back__" as const;
 type WizardStepResult = JobRequest | null | typeof BACK;
 
 const categories = [
-  { title: "Documents and markup", value: "documents" },
-  { title: "PDF operations", value: "pdf" },
-  { title: "Images", value: "images" },
-  { title: "Audio and video", value: "media" },
-  { title: "Video & social media download (YouTube, Instagram, TikTok, X, Facebook, and more)", value: "youtube" },
-  { title: "Website extraction", value: "web" }
+  { title: "Documents", description: "Convert between Markdown, HTML, DOCX, PDF, PPTX, XLSX", value: "documents" },
+  { title: "PDF", description: "Merge, split, and optimize PDFs", value: "pdf" },
+  { title: "Images", description: "Convert and compress JPG, PNG, WEBP", value: "images" },
+  { title: "Audio & Video", description: "Convert between MP4, MP3, WAV, MOV, MKV", value: "media" },
+  { title: "Download", description: "Save video & audio from any URL", value: "download" },
+  { title: "Web pages", description: "Extract text from web pages", value: "web" }
 ] as const;
 
 const documentRoutes = [
@@ -46,14 +46,16 @@ const mediaRoutes = [
   { title: "Compress video", from: undefined, to: undefined, operation: "compress" }
 ] as const;
 
-const youtubeRoutes = [
-  { title: "Video/audio to transcript", from: "youtube-url" as ResourceKind, to: "transcript" as ResourceKind },
-  { title: "Video/audio to MP4", from: "youtube-url" as ResourceKind, to: "mp4" as ResourceKind },
-  { title: "Video/audio to MP3", from: "youtube-url" as ResourceKind, to: "mp3" as ResourceKind }
+const downloadOperations = [
+  { title: "Save as MP4", to: "mp4" as ResourceKind },
+  { title: "Save as MP3", to: "mp3" as ResourceKind },
+  { title: "Extract transcript", to: "transcript" as ResourceKind }
 ] as const;
 
+const supportedPlatformsHint = "  Supported: YouTube, Instagram, TikTok, X, Facebook, Reddit, Vimeo, SoundCloud, and 1800+ more";
+
 function backChoice<T>() {
-  return { title: "← Back", value: BACK as T };
+  return { title: "Back", value: BACK as T };
 }
 
 async function askOutputPath(suggestedPath: string): Promise<string | typeof BACK | undefined> {
@@ -70,12 +72,12 @@ async function handlePdfCategory(): Promise<WizardStepResult> {
   const operationAnswer = await prompts({
     type: "select",
     name: "operation",
-    message: "Which PDF operation?",
+    message: "PDF operation:",
     choices: [
       backChoice(),
       { title: "Merge PDFs", value: "merge" },
       { title: "Split / extract pages", value: "split" },
-      { title: "Optimize PDF", value: "optimize" }
+      { title: "Optimize / compress", value: "optimize" }
     ]
   });
 
@@ -94,7 +96,7 @@ async function handlePdfCategory(): Promise<WizardStepResult> {
       {
         type: "text",
         name: "output",
-        message: "Save to:"
+        message: "Save merged PDF to:"
       }
     ]);
 
@@ -141,27 +143,31 @@ async function handlePdfCategory(): Promise<WizardStepResult> {
   };
 }
 
-async function handleYoutubeCategory(): Promise<WizardStepResult> {
-  const routeAnswer = await prompts({
+async function handleDownloadCategory(): Promise<WizardStepResult> {
+  const opAnswer = await prompts({
     type: "select",
-    name: "routeIndex",
-    message: "Which operation?",
+    name: "opIndex",
+    message: "What do you want to save?",
     choices: [
       backChoice(),
-      ...youtubeRoutes.map((route, index) => ({ title: route.title, value: index }))
+      ...downloadOperations.map((op, index) => ({ title: op.title, value: index }))
     ]
   });
 
-  if (routeAnswer.routeIndex === BACK || routeAnswer.routeIndex === undefined) {
+  if (opAnswer.opIndex === BACK || opAnswer.opIndex === undefined) {
     return BACK;
   }
 
-  const selected = youtubeRoutes[routeAnswer.routeIndex];
+  const selected = downloadOperations[opAnswer.opIndex];
+
+  console.log("");
+  console.log(`  ${"\x1b[2m"}${supportedPlatformsHint}${"\x1b[0m"}`);
+  console.log("");
 
   const urlAnswer = await prompts({
     type: "text",
     name: "input",
-    message: "URL (YouTube, Instagram, TikTok, Facebook, Twitter/X, Reddit, Vimeo, etc.):"
+    message: "Paste a URL:"
   });
 
   if (!urlAnswer.input) {
@@ -181,7 +187,7 @@ async function handleYoutubeCategory(): Promise<WizardStepResult> {
     const formatAnswer = await prompts({
       type: "select",
       name: "format",
-      message: "Transcript format?",
+      message: "Transcript format:",
       choices: [
         { title: "Plain text", value: "text" },
         { title: "Markdown", value: "markdown" }
@@ -213,7 +219,7 @@ async function handleWebCategory(): Promise<WizardStepResult> {
   const fetchAnswers = await prompts({
     type: "select",
     name: "to",
-    message: "Output format?",
+    message: "Output format:",
     choices: [
       backChoice(),
       { title: "Markdown", value: "markdown" },
@@ -228,7 +234,7 @@ async function handleWebCategory(): Promise<WizardStepResult> {
   const urlAnswer = await prompts({
     type: "text",
     name: "input",
-    message: "URL to fetch:"
+    message: "URL to extract:"
   });
 
   if (!urlAnswer.input) {
@@ -260,10 +266,16 @@ async function handleRouteCategory(
         ? imageRoutes
         : mediaRoutes;
 
+  const messageMap: Record<string, string> = {
+    documents: "Convert what?",
+    images: "Image operation:",
+    media: "Media operation:"
+  };
+
   const routeAnswer = await prompts({
     type: "select",
     name: "routeIndex",
-    message: category === "documents" ? "Which conversion?" : "Which operation?",
+    message: messageMap[category] ?? "Which operation?",
     choices: [
       backChoice(),
       ...routeChoices.map((route, index) => ({ title: route.title, value: index }))
@@ -326,12 +338,25 @@ async function handleRouteCategory(
 }
 
 export async function runWizard(): Promise<JobRequest | null> {
+  const dim = "\x1b[2m";
+  const bold = "\x1b[1m";
+  const reset = "\x1b[0m";
+
+  console.log("");
+  console.log(`  ${bold}muxory${reset}`);
+  console.log(`  ${dim}Convert, download, and transform files on your machine.${reset}`);
+  console.log("");
+
   while (true) {
     const categoryAnswer = await prompts({
       type: "select",
       name: "category",
       message: "What do you want to do?",
-      choices: categories.map((item) => ({ title: item.title, value: item.value }))
+      choices: categories.map((item) => ({
+        title: item.title,
+        description: item.description,
+        value: item.value
+      }))
     });
 
     const category = categoryAnswer.category as string | undefined;
@@ -345,8 +370,8 @@ export async function runWizard(): Promise<JobRequest | null> {
       case "pdf":
         result = await handlePdfCategory();
         break;
-      case "youtube":
-        result = await handleYoutubeCategory();
+      case "download":
+        result = await handleDownloadCategory();
         break;
       case "web":
         result = await handleWebCategory();

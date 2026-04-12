@@ -303,9 +303,7 @@ export class Planner {
       return {
         selectedPluginId: selected.pluginId,
         explanation: selected.explanation.join(" "),
-        warnings: [
-          ...(selected.capability.notes ?? [])
-        ],
+        warnings: [],
         installNeeded: false,
         fallbacks: ranked
           .filter((candidate) => candidate.pluginId !== selected.pluginId)

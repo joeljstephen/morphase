@@ -72,6 +72,18 @@ export function enrichError(pluginId: string, error: MuxoryError, stderr: string
     };
   }
 
+  if (pluginId === "ytdlp" && /ENOENT.*\.vtt/i.test(error.message)) {
+    return {
+      ...error,
+      message: "No subtitles were found for this video.",
+      likelyCause: "The video does not have subtitles or auto-generated captions in the requested language.",
+      suggestedFixes: [
+        "This platform or video may not provide subtitles.",
+        "Try saving as MP4 instead: muxory fetch \"<url>\" --to mp4"
+      ]
+    };
+  }
+
   if (pluginId === "summarize" && /node.*version|unsupported/i.test(stderr)) {
     return {
       ...error,

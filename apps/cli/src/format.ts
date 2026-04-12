@@ -1,23 +1,42 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import type { BackendDoctorReport, JobResult, MuxoryError } from "@muxory/shared";
 
 const green = "\x1b[32m";
 const red = "\x1b[31m";
 const yellow = "\x1b[33m";
-const cyan = "\x1b[36m";
 const dim = "\x1b[2m";
 const bold = "\x1b[1m";
 const reset = "\x1b[0m";
 
+function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function labeled(label: string, value: string): string {
+  return `    ${dim}${label.padEnd(8)}${reset} ${value}`;
+}
+
 export function formatCliError(error: unknown): string {
   if (error instanceof Error && "details" in error) {
     const details = (error as { details: MuxoryError }).details;
-    const lines: string[] = [`${red}✗${reset} ${details.message}`];
+    const lines: string[] = [
+      "",
+      `  ${red}✗${reset}  ${bold}${details.message}${reset}`
+    ];
     if (details.likelyCause) {
-      lines.push(`  ${dim}Cause:${reset} ${details.likelyCause}`);
+      lines.push(labeled("Cause", details.likelyCause));
     }
     if (details.suggestedFixes?.length) {
-      lines.push(`  ${dim}Try:${reset} ${details.suggestedFixes.join(" · ")}`);
+      for (const fix of details.suggestedFixes) {
+        lines.push(labeled("Try", fix));
+      }
     }
+    lines.push("");
     return lines.join("\n");
   }
 
@@ -49,29 +68,57 @@ export function formatDoctorReport(report: BackendDoctorReport): string {
 
 export function formatJobResult(result: JobResult): string {
   if (result.status === "success") {
-    const lines: string[] = [`${green}✓ Done${reset}`];
-    if (result.outputPaths.length) {
-      for (const p of result.outputPaths) {
-        lines.push(`  ${cyan}→${reset} ${p}`);
-      }
+    const lines: string[] = [
+      "",
+      `  ${green}✓${reset}  ${bold}Saved successfully${reset}`
+    ];
+
+    for (const p of result.outputPaths) {
+      const name = path.basename(p);
+      let sizeInfo = "";
+      try {
+        sizeInfo = ` ${dim}(${humanSize(fs.statSync(p).size)})${reset}`;
+      } catch {}
+      lines.push(labeled("File", `${name}${sizeInfo}`));
+      lines.push(labeled("Path", `${dim}${p}${reset}`));
     }
+
+    if (result.backendId) {
+      lines.push(labeled("Via", result.backendId));
+    }
+
     if (result.warnings?.length) {
+      lines.push("");
       for (const w of result.warnings) {
-        lines.push(`  ${yellow}⚠${reset} ${w}`);
+        lines.push(`  ${yellow}⚠${reset}  ${w}`);
       }
     }
+
+    lines.push("");
     return lines.join("\n");
   }
 
-  const lines: string[] = [`${red}✗ Failed${reset}`];
+  const lines: string[] = [
+    "",
+    `  ${red}✗${reset}  ${bold}Failed${reset}`
+  ];
+
   if (result.error) {
-    lines.push(`  ${dim}Error:${reset} ${result.error.message}`);
+    lines.push(labeled("Error", result.error.message));
     if (result.error.likelyCause) {
-      lines.push(`  ${dim}Cause:${reset} ${result.error.likelyCause}`);
+      lines.push(labeled("Cause", result.error.likelyCause));
     }
     if (result.error.suggestedFixes?.length) {
-      lines.push(`  ${dim}Try:${reset} ${result.error.suggestedFixes.join(" · ")}`);
+      for (const fix of result.error.suggestedFixes) {
+        lines.push(labeled("Try", fix));
+      }
     }
   }
+
+  if (result.backendId) {
+    lines.push(labeled("Via", result.backendId));
+  }
+
+  lines.push("");
   return lines.join("\n");
 }

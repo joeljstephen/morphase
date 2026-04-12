@@ -146,6 +146,17 @@ describe("Error enrichment for yt-dlp and summarize", () => {
     expect(enriched.suggestedFixes).toContainEqual(expect.stringContaining("brew install ffmpeg"));
   });
 
+  it("enriches yt-dlp missing subtitle file error", () => {
+    const enriched = enrichError(
+      "ytdlp",
+      makeError({ message: "ENOENT: no such file or directory, rename '/tmp/video.en.vtt' -> '/tmp/video.txt'" }),
+      ""
+    );
+    expect(enriched.message).toContain("subtitles");
+    expect(enriched.likelyCause).toContain("subtitles");
+    expect(enriched.suggestedFixes?.length).toBeGreaterThan(0);
+  });
+
   it("enriches summarize Node version error", () => {
     const enriched = enrichError("summarize", makeError(), "unsupported Node version");
     expect(enriched.likelyCause).toContain("Node 22");

@@ -10,9 +10,9 @@ export const ROUTE_PREFERENCES: Record<string, string[]> = {
   "ods->pdf": ["libreoffice"],
   "odp->pdf": ["libreoffice"],
   "pdf->docx": ["libreoffice"],
-  "pdf->markdown": ["markitdown", "docling"],
-  "pdf->txt": ["markitdown", "docling"],
-  "url->markdown": ["trafilatura", "jina"],
+  "pdf->markdown": ["markitdown"],
+  "pdf->txt": ["markitdown"],
+  "url->markdown": ["trafilatura"],
   "url->txt": ["trafilatura"],
   "jpg->png": ["imagemagick"],
   "png->jpg": ["imagemagick"],
@@ -44,5 +44,5 @@ export const ROUTE_PREFERENCES: Record<string, string[]> = {
   "mov:compress": ["ffmpeg"],
   "mkv:compress": ["ffmpeg"],
   "jpg:compress": ["jpegoptim"],
-  "png:compress": ["optipng", "pngquant"]
+  "png:compress": ["optipng"]
 };
