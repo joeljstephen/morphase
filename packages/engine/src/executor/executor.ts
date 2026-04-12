@@ -3,107 +3,471 @@ import path from "node:path";
 
 import { execa } from "execa";
 
-import type { JobRequest, JobResult, MorphaseError, PlannedExecution } from "@morphase/shared";
+import { inferResourceKind, type JobRequest, type JobResult, type MorphaseError, type PlannedExecution, type ResourceKind, type Route } from "@morphase/shared";
 
 import { createError } from "../errors/morphase-error.js";
 import { Logger } from "../logging/logger.js";
 
-export function enrichError(pluginId: string, error: MorphaseError, stderr: string): MorphaseError {
-  if (pluginId === "ffmpeg" && /does not contain any stream/i.test(stderr)) {
+const friendlyResourceNames: Record<string, string> = {
+  markdown: "Markdown (.md)",
+  html: "HTML (.html)",
+  docx: "Word document (.docx)",
+  pptx: "PowerPoint (.pptx)",
+  xlsx: "Excel (.xlsx)",
+  odt: "OpenDocument text (.odt)",
+  ods: "OpenDocument spreadsheet (.ods)",
+  odp: "OpenDocument presentation (.odp)",
+  pdf: "PDF (.pdf)",
+  txt: "plain text (.txt)",
+  jpg: "JPEG image (.jpg)",
+  png: "PNG image (.png)",
+  webp: "WebP image (.webp)",
+  heic: "HEIC image (.heic)",
+  mp3: "MP3 audio (.mp3)",
+  wav: "WAV audio (.wav)",
+  mp4: "MP4 video (.mp4)",
+  mov: "MOV video (.mov)",
+  mkv: "MKV video (.mkv)",
+  url: "web URL",
+  "youtube-url": "YouTube URL",
+  "media-url": "media URL",
+  subtitle: "subtitle file",
+  transcript: "transcript file"
+};
+
+function friendlyKind(kind: ResourceKind | undefined): string {
+  return kind ? (friendlyResourceNames[kind] ?? kind) : "unknown format";
+}
+
+function detectInputMismatch(input: string, route: Route): string | null {
+  if (route.kind !== "conversion") {
+    return null;
+  }
+
+  const inferred = inferResourceKind(input);
+  if (!inferred || inferred === "url" || inferred === "youtube-url" || inferred === "media-url") {
+    return null;
+  }
+
+  if (inferred !== route.from) {
+    return `The input file appears to be ${friendlyKind(inferred)}, but this route expects ${friendlyKind(route.from)} as input.`;
+  }
+
+  return null;
+}
+
+export function enrichError(
+  pluginId: string,
+  error: MorphaseError,
+  stderr: string,
+  input?: string,
+  route?: Route
+): MorphaseError {
+  const mismatch = input && route ? detectInputMismatch(input, route) : null;
+  if (mismatch) {
     return {
       ...error,
-      likelyCause: "The input file does not contain an audio stream.",
+      message: mismatch,
+      likelyCause: "The input file format does not match what this backend can process.",
       suggestedFixes: [
-        "Verify the input file has an audio track.",
-        "The video may have been recorded without sound."
+        `Use a ${friendlyKind(route?.kind === "conversion" ? route.from : undefined)} file as input instead.`,
+        "Run morphase without arguments to use the interactive wizard, which matches routes to file types."
       ]
     };
   }
 
-  if (pluginId === "ffmpeg" && /no such file|no file/i.test(stderr)) {
-    return {
-      ...error,
-      likelyCause: "FFmpeg could not find the input file.",
-      suggestedFixes: ["Check that the input path is correct and the file exists."]
-    };
+  if (pluginId === "pandoc") {
+    if (/getopt|unknown option|unrecognized option/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "Pandoc received an unsupported option or flag.",
+        suggestedFixes: ["Update pandoc to the latest version (morphase backend update pandoc)."]
+      };
+    }
+
+    if (/could not parse|parse failure|not a valid|failed to parse/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "Pandoc could not parse the input file. The file may be corrupted, empty, or in a different format than expected.",
+        suggestedFixes: [
+          "Verify the input file opens correctly in its native application.",
+          "Make sure the file extension matches the actual content.",
+          "Try opening the file and re-saving it before converting."
+        ]
+      };
+    }
+
+    if (/pdf engine|pdflatex|xelatex|lualatex/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "Pandoc needs a PDF engine installed to produce PDF output.",
+        suggestedFixes: [
+          "Install a LaTeX distribution (e.g. BasicTeX or MacTeX on macOS).",
+          "Alternatively, convert to DOCX first, then use LibreOffice for PDF output."
+        ]
+      };
+    }
+
+    if (/no such file|not found|ENOENT/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "Pandoc could not find the input file.",
+        suggestedFixes: ["Check that the file path is correct and the file exists."]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "Pandoc failed to convert the file. The input format may not match the file contents, or the file may be corrupted.",
+        suggestedFixes: [
+          "Verify the input file is a valid " + (route?.kind === "conversion" ? friendlyKind(route.from) : "document") + ".",
+          "Try a different output format.",
+          "Run morphase doctor to verify pandoc is healthy."
+        ]
+      };
+    }
   }
 
-  if (pluginId === "ytdlp" && /requested format not available/i.test(stderr)) {
-    return {
-      ...error,
-      likelyCause: "The requested format is not available for this video.",
-      suggestedFixes: [
-        "Try a different output format.",
-        "The video may not support the requested quality or format."
-      ]
-    };
+  if (pluginId === "libreoffice") {
+    if (/no such file|not found|ENOENT|could not stat/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "LibreOffice could not find the input file.",
+        suggestedFixes: ["Check that the file path is correct and the file exists."]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "LibreOffice failed to convert the file. The input may not be a supported document format.",
+        suggestedFixes: [
+          "Verify the input file is a valid " + (route?.kind === "conversion" ? friendlyKind(route.from) : "document") + ".",
+          "Try opening the file in LibreOffice directly to check if it is valid.",
+          "Run morphase doctor to verify LibreOffice is healthy."
+        ]
+      };
+    }
   }
 
-  if (pluginId === "ytdlp" && /video unavailable|private/i.test(stderr)) {
-    return {
-      ...error,
-      likelyCause: "The YouTube video is unavailable, private, or region-locked.",
-      suggestedFixes: [
-        "Verify the URL is correct.",
-        "The video may be private, deleted, or geo-restricted."
-      ]
-    };
+  if (pluginId === "imagemagick") {
+    if (/no decode delegate|not authorized|unrecognized/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "ImageMagick cannot read this image format. It may not have the required delegate installed.",
+        suggestedFixes: [
+          "Verify the input file is a valid image.",
+          "HEIC or WebP support may require additional delegates in your ImageMagick installation.",
+          "Try converting to a more common format first (e.g. PNG or JPEG)."
+        ]
+      };
+    }
+
+    if (/no such file|not found|ENOENT/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "ImageMagick could not find the input file.",
+        suggestedFixes: ["Check that the file path is correct and the file exists."]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "ImageMagick failed to convert the image. The input may not be a valid or supported image file.",
+        suggestedFixes: [
+          "Verify the input file is a valid " + (route?.kind === "conversion" ? friendlyKind(route.from) : "image") + ".",
+          "Run morphase doctor to check for delegate warnings."
+        ]
+      };
+    }
   }
 
-  if (pluginId === "ytdlp" && /sign in|bot/i.test(stderr)) {
-    return {
-      ...error,
-      likelyCause: "YouTube is requiring authentication or blocking the request.",
-      suggestedFixes: [
-        "Update yt-dlp to the latest version (morphase backend update ytdlp).",
-        "YouTube may be rate-limiting or blocking automated requests."
-      ]
-    };
+  if (pluginId === "ffmpeg") {
+    if (/does not contain any stream/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "The input file does not contain the expected audio or video stream.",
+        suggestedFixes: [
+          "Verify the input file has the expected media track.",
+          "The video may have been recorded without sound."
+        ]
+      };
+    }
+
+    if (/invalid data found|not found any stream|cannot find/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "FFmpeg could not read the input file. It may not be a valid media file.",
+        suggestedFixes: [
+          "Verify the input file is a valid " + (route?.kind === "conversion" ? friendlyKind(route.from) : "media file") + ".",
+          "Try playing the file in a media player to check if it works."
+        ]
+      };
+    }
+
+    if (/no such file|not found|ENOENT/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "FFmpeg could not find the input file.",
+        suggestedFixes: ["Check that the file path is correct and the file exists."]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "FFmpeg failed to process the file. The input format may not match the file contents.",
+        suggestedFixes: [
+          "Verify the input file is a valid " + (route?.kind === "conversion" ? friendlyKind(route.from) : "media file") + ".",
+          "Run morphase doctor to verify ffmpeg is healthy."
+        ]
+      };
+    }
   }
 
-  if (pluginId === "ytdlp" && /ffmpeg/i.test(stderr)) {
-    return {
-      ...error,
-      likelyCause: "FFmpeg is required for this operation but is not installed.",
-      suggestedFixes: [
-        "Install ffmpeg (brew install ffmpeg on macOS).",
-        "MP3 extraction requires ffmpeg for audio conversion."
-      ]
-    };
+  if (pluginId === "qpdf") {
+    if (/not a PDF file|does not look like a PDF/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "The input file is not a valid PDF.",
+        suggestedFixes: [
+          "Verify the input file is a PDF document.",
+          "The file may be corrupted or have the wrong extension."
+        ]
+      };
+    }
+
+    if (/no such file|not found|ENOENT|unable to open/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "qpdf could not find or open the input file.",
+        suggestedFixes: ["Check that the file path is correct and the file exists."]
+      };
+    }
+
+    if (/password/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "The PDF is password-protected.",
+        suggestedFixes: ["Morphase does not support encrypted or password-protected PDFs."]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "qpdf failed to process the PDF. The file may be corrupted or not a valid PDF.",
+        suggestedFixes: [
+          "Verify the input file is a valid PDF.",
+          "Try opening it in a PDF reader to check."
+        ]
+      };
+    }
   }
 
-  if (pluginId === "ytdlp" && /ENOENT.*\.vtt/i.test(error.message)) {
-    return {
-      ...error,
-      message: "No subtitles were found for this video.",
-      likelyCause: "The video does not have subtitles or auto-generated captions in the requested language.",
-      suggestedFixes: [
-        "This platform or video may not provide subtitles.",
-        "Try saving as MP4 instead: morphase fetch \"<url>\" --to mp4"
-      ]
-    };
+  if (pluginId === "trafilatura") {
+    if (/no content|could not (fetch|download|extract)/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "Trafilatura could not extract content from the URL.",
+        suggestedFixes: [
+          "Check that the URL is correct and accessible.",
+          "The page may require JavaScript or be behind a paywall."
+        ]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "Trafilatura failed to extract content from the URL.",
+        suggestedFixes: [
+          "Verify the URL points to a page with article or text content.",
+          "The page may require JavaScript rendering which trafilatura does not support."
+        ]
+      };
+    }
   }
 
-  if (pluginId === "summarize" && /node.*version|unsupported/i.test(stderr)) {
-    return {
-      ...error,
-      likelyCause: "summarize requires Node 22 or later.",
-      suggestedFixes: [
-        "Upgrade Node.js to version 22 or later.",
-        "Run `node --version` to check your current version."
-      ]
-    };
+  if (pluginId === "ytdlp") {
+    if (/requested format not available/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "The requested format is not available for this video.",
+        suggestedFixes: [
+          "Try a different output format.",
+          "The video may not support the requested quality or format."
+        ]
+      };
+    }
+
+    if (/video unavailable|private/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "The YouTube video is unavailable, private, or region-locked.",
+        suggestedFixes: [
+          "Verify the URL is correct.",
+          "The video may be private, deleted, or geo-restricted."
+        ]
+      };
+    }
+
+    if (/sign in|bot/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "YouTube is requiring authentication or blocking the request.",
+        suggestedFixes: [
+          "Update yt-dlp to the latest version (morphase backend update ytdlp).",
+          "YouTube may be rate-limiting or blocking automated requests."
+        ]
+      };
+    }
+
+    if (/ffmpeg/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "FFmpeg is required for this operation but is not installed.",
+        suggestedFixes: [
+          "Install ffmpeg (brew install ffmpeg on macOS).",
+          "MP3 extraction requires ffmpeg for audio conversion."
+        ]
+      };
+    }
+
+    if (/ENOENT.*\.vtt/i.test(error.message)) {
+      return {
+        ...error,
+        message: "No subtitles were found for this video.",
+        likelyCause: "The video does not have subtitles or auto-generated captions in the requested language.",
+        suggestedFixes: [
+          "This platform or video may not provide subtitles.",
+          "Try saving as MP4 instead: morphase fetch \"<url>\" --to mp4"
+        ]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "yt-dlp failed to download or process the media.",
+        suggestedFixes: [
+          "Verify the URL is correct.",
+          "The content may be private, region-locked, or removed.",
+          "Update yt-dlp (morphase backend update ytdlp)."
+        ]
+      };
+    }
   }
 
-  if (pluginId === "summarize" && /transcript|subtitle/i.test(stderr)) {
-    return {
-      ...error,
-      likelyCause: "summarize could not extract a transcript from this content.",
-      suggestedFixes: [
-        "The video may not have subtitles or transcript data available.",
-        "Try the yt-dlp fallback: morphase fetch \"<url>\" --to transcript --backend ytdlp"
-      ]
-    };
+  if (pluginId === "summarize") {
+    if (/node.*version|unsupported/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "summarize requires Node 22 or later.",
+        suggestedFixes: [
+          "Upgrade Node.js to version 22 or later.",
+          "Run `node --version` to check your current version."
+        ]
+      };
+    }
+
+    if (/transcript|subtitle/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "summarize could not extract a transcript from this content.",
+        suggestedFixes: [
+          "The video may not have subtitles or transcript data available.",
+          "Try the yt-dlp fallback: morphase fetch \"<url>\" --to transcript --backend ytdlp"
+        ]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "summarize failed to process the content.",
+        suggestedFixes: [
+          "Verify the URL is correct.",
+          "Try the yt-dlp fallback: morphase fetch \"<url>\" --to transcript --backend ytdlp"
+        ]
+      };
+    }
+  }
+
+  if (pluginId === "markitdown") {
+    if (/no such file|not found|ENOENT/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "MarkItDown could not find the input file.",
+        suggestedFixes: ["Check that the file path is correct and the file exists."]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "MarkItDown failed to extract content from the file. The format may not be supported.",
+        suggestedFixes: [
+          "Verify the input file is a supported format (PDF, DOCX, PPTX, HTML, or XLSX).",
+          "The file may be corrupted or contain unsupported content."
+        ]
+      };
+    }
+  }
+
+  if (pluginId === "jpegoptim" || pluginId === "optipng") {
+    if (/no such file|not found|ENOENT/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: `${pluginId} could not find the input file.`,
+        suggestedFixes: ["Check that the file path is correct and the file exists."]
+      };
+    }
+
+    if (/not a (JPEG|PNG)|corrupt|invalid/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: `The input file is not a valid ${pluginId === "jpegoptim" ? "JPEG" : "PNG"} image.`,
+        suggestedFixes: [
+          `Verify the input is a valid ${pluginId === "jpegoptim" ? "JPEG" : "PNG"} file.`,
+          "The file may have the wrong extension."
+        ]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: `${pluginId} failed to optimize the image.`,
+        suggestedFixes: [
+          `Verify the input file is a valid ${pluginId === "jpegoptim" ? "JPEG" : "PNG"} image.`,
+          "Run morphase doctor to verify the backend is healthy."
+        ]
+      };
+    }
+  }
+
+  if (pluginId === "whisper") {
+    if (/no such file|not found|ENOENT/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "Whisper could not find the input file.",
+        suggestedFixes: ["Check that the file path is correct and the file exists."]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "Whisper failed to transcribe the audio. The file may not be a valid audio or video file.",
+        suggestedFixes: [
+          "Verify the input file is a valid audio or video file.",
+          "Whisper also requires FFmpeg to decode media files."
+        ]
+      };
+    }
   }
 
   return error;
@@ -215,10 +579,19 @@ export class Executor {
                 backendId: step.pluginId
               };
 
-        const MorphaseError = enrichError(
+        const stepInput = typeof step.plan.args.find((arg, i) => {
+          const prev = step.plan.args[i - 1];
+          return prev !== "-o" && prev !== "--output" && prev !== "--dest" && prev !== "--out" && !arg.startsWith("-");
+        }) === "string" && !step.plan.args[0]?.startsWith("-")
+          ? step.plan.args[0]
+          : Array.isArray(request.input) ? request.input[0] : request.input;
+
+        const enrichedError = enrichError(
           step.pluginId,
           baseError,
-          baseError.rawStderr ?? (error instanceof Error ? error.message : "")
+          baseError.rawStderr ?? (error instanceof Error ? error.message : ""),
+          stepInput,
+          step.route
         );
 
         return {
@@ -228,7 +601,7 @@ export class Executor {
           outputPaths: [...outputPaths],
           logs,
           warnings,
-          error: MorphaseError,
+          error: enrichedError,
           equivalentCommand: execution.equivalentCommand
         };
       }

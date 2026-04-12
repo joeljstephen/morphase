@@ -304,6 +304,23 @@ async function handleRouteCategory(
 
   const from = selected.from ?? inferResourceKind(inputAnswer.input);
 
+  if (selected.from) {
+    const inferred = inferResourceKind(inputAnswer.input);
+    if (inferred && inferred !== selected.from) {
+      const ext = path.extname(inputAnswer.input);
+      console.log(`  \x1b[33mWarning: Input looks like ${inferred} (${ext || "URL"}) but this route expects ${selected.from}.\x1b[0m`);
+      const confirmAnswer = await prompts({
+        type: "confirm",
+        name: "proceed",
+        message: "Continue anyway?",
+        initial: false
+      });
+      if (!confirmAnswer.proceed) {
+        return BACK;
+      }
+    }
+  }
+
   if (selected.operation === "compress") {
     const resourceFrom = from ?? inferResourceKind(inputAnswer.input) ?? "mp4";
     const suggestedOutput = path.resolve(deriveOutputPath(inputAnswer.input, resourceFrom));

@@ -1,5 +1,5 @@
 {
-  "name": "morphase",
+  "name": "morphase-monorepo",
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@10.2.0",
@@ -8,7 +8,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "pnpm --filter morphase-cli dev"
+    "dev": "pnpm --filter morphase dev"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
