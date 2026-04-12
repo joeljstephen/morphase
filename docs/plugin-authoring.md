@@ -18,5 +18,5 @@ Plugin rules:
 - avoid mutating system state without explicit user intent
 - keep backend-specific quirks, warnings, and install metadata inside the plugin
 
-Use `definePlugin()` from `@muxory/plugin-sdk` to keep plugin declarations consistent.
+Use `definePlugin()` from `@morphase/plugin-sdk` to keep plugin declarations consistent.
 

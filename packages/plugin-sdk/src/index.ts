@@ -1,7 +1,7 @@
-import { runCommandCapture } from "@muxory/shared";
-import type { DetectionResult, InstallHint, MuxoryPlugin, Platform } from "@muxory/shared";
+import { runCommandCapture } from "@morphase/shared";
+import type { DetectionResult, InstallHint, MorphasePlugin, Platform } from "@morphase/shared";
 
-export function definePlugin(plugin: MuxoryPlugin): MuxoryPlugin {
+export function definePlugin(plugin: MorphasePlugin): MorphasePlugin {
   return plugin;
 }
 

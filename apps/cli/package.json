@@ -1,24 +1,43 @@
 {
-  "name": "muxory-cli",
+  "name": "morphase",
   "version": "0.1.0",
   "type": "module",
+  "description": "Local-first open-source conversion router — convert, download, and transform files on your machine",
   "bin": {
-    "muxory": "dist/index.js"
+    "morphase": "dist/index.js"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "tsx src/index.ts"
   },
+  "keywords": [
+    "convert",
+    "ffmpeg",
+    "pandoc",
+    "pdf",
+    "youtube",
+    "download",
+    "media",
+    "cli",
+    "local-first"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/morphase.git"
+  },
   "dependencies": {
-    "@muxory/engine": "workspace:*",
-    "@muxory/server": "workspace:*",
-    "@muxory/shared": "workspace:*",
+    "@morphase/engine": "workspace:*",
+    "@morphase/server": "workspace:*",
+    "@morphase/shared": "workspace:*",
     "commander": "^14.0.1",
     "execa": "^9.6.0",
     "prompts": "^2.4.2"
   }
 }
-

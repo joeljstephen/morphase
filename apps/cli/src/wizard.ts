@@ -2,7 +2,7 @@ import path from "node:path";
 
 import prompts from "prompts";
 
-import { deriveOutputPath, inferResourceKind, isMediaUrl, isUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@muxory/shared";
+import { deriveOutputPath, inferResourceKind, isMediaUrl, isUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@morphase/shared";
 
 const BACK = "__back__" as const;
 
@@ -343,7 +343,7 @@ export async function runWizard(): Promise<JobRequest | null> {
   const reset = "\x1b[0m";
 
   console.log("");
-  console.log(`  ${bold}muxory${reset}`);
+  console.log(`  ${bold}morphase${reset}`);
   console.log(`  ${dim}Convert, download, and transform files on your machine.${reset}`);
   console.log("");
 

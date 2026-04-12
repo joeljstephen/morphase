@@ -1,4 +1,4 @@
-# Muxory — Full Product & Architecture Specification
+# morphase — Full Product & Architecture Specification
 
 Version: v1.0 draft  
 Status: Implementation guide  
@@ -8,7 +8,7 @@ Audience: Human maintainers, Claude, Codex, or any coding agent implementing the
 
 ## 1. Executive summary
 
-Muxory is a local-first, open-source conversion router.
+morphase is a local-first, open-source conversion router.
 
 It does **not** try to reimplement every file conversion engine itself. Instead, it provides one clean, consistent interface that routes a user’s request to the best available open-source backend for that job.
 
@@ -27,9 +27,9 @@ Examples:
 - `pdf merge`
 - `pdf split`
 
-Muxory is primarily a **routing, setup, and user-experience layer** on top of existing best-of-breed tools such as Pandoc, LibreOffice, FFmpeg, qpdf, ImageMagick, Trafilatura, MarkItDown, and Docling.
+morphase is primarily a **routing, setup, and user-experience layer** on top of existing best-of-breed tools such as Pandoc, LibreOffice, FFmpeg, qpdf, ImageMagick, Trafilatura, MarkItDown, and Docling.
 
-Muxory must be designed from the beginning so that:
+morphase must be designed from the beginning so that:
 - it works as a CLI,
 - it can later power a local/self-hosted web UI,
 - it can run on macOS, Windows, and Linux,
@@ -45,9 +45,9 @@ The core design principle is:
 
 ## 2. Product definition
 
-### 2.1 What Muxory is
+### 2.1 What morphase is
 
-Muxory is:
+morphase is:
 - a **conversion router**,
 - a **capability registry**,
 - a **backend plugin host**,
@@ -55,9 +55,9 @@ Muxory is:
 - a **thin local automation layer**,
 - and later, a **server/UI-friendly engine**.
 
-### 2.2 What Muxory is not
+### 2.2 What morphase is not
 
-Muxory is not:
+morphase is not:
 - a universal promise that “anything converts to anything,”
 - a new rendering engine,
 - a replacement for OS package managers,
@@ -67,7 +67,7 @@ Muxory is not:
 
 ### 2.3 User value proposition
 
-Muxory solves these pain points:
+morphase solves these pain points:
 - Users do not want to remember many different CLIs.
 - Users do not want to remember install commands for FFmpeg, Pandoc, LibreOffice, etc.
 - Users do not want to read docs for every tool.
@@ -91,7 +91,7 @@ Muxory solves these pain points:
 
 ### 3.1 v1 scope
 
-Muxory v1 should support these core families:
+morphase v1 should support these core families:
 
 1. **Documents and markup**
 2. **PDF operations**
@@ -178,7 +178,7 @@ This narrow support matrix is intentional to keep maintenance low.
 
 ### 4.1 Dual interaction model
 
-Muxory must support two interaction styles.
+morphase must support two interaction styles.
 
 #### A. Guided mode
 This is the default beginner-friendly flow.
@@ -186,10 +186,10 @@ This is the default beginner-friendly flow.
 When the user runs:
 
 ```bash
-muxory
+morphase
 ```
 
-Muxory launches an interactive wizard.
+morphase launches an interactive wizard.
 
 Wizard flow:
 1. Ask what the user wants to do.
@@ -209,14 +209,14 @@ This is the direct, scriptable CLI.
 Examples:
 
 ```bash
-muxory convert deck.pptx deck.pdf
-muxory extract paper.pdf --to md
-muxory fetch https://example.com/article --to md
-muxory media input.mp4 --to mp3
-muxory pdf merge a.pdf b.pdf -o merged.pdf
-muxory doctor
-muxory backend verify ffmpeg
-muxory serve
+morphase convert deck.pptx deck.pdf
+morphase extract paper.pdf --to md
+morphase fetch https://example.com/article --to md
+morphase media input.mp4 --to mp3
+morphase pdf merge a.pdf b.pdf -o merged.pdf
+morphase doctor
+morphase backend verify ffmpeg
+morphase serve
 ```
 
 ### 4.2 CLI UX principles
@@ -230,12 +230,12 @@ muxory serve
 
 ### 4.3 Future UI mode
 
-Muxory must support a future local browser UI.
+morphase must support a future local browser UI.
 
 Users should eventually be able to run:
 
 ```bash
-muxory serve
+morphase serve
 ```
 
 Then open a local web app in the browser.
@@ -256,7 +256,7 @@ The UI must use the same engine as the CLI. It must **not** shell out to CLI com
                           |
                           v
 +-----------+    +-------------------+    +------------------+
-|   CLI     | -> |   Muxory Engine   | <- |  Local API       |
+|   CLI     | -> |   morphase Engine   | <- |  Local API       |
 | (client)  |    |                   |    |  Server          |
 +-----------+    | - registry        |    +------------------+
                  | - planner         |
@@ -306,7 +306,7 @@ This means:
 Use a monorepo from day one.
 
 ```text
-muxory/
+morphase/
   apps/
     cli/
     server/
@@ -368,7 +368,7 @@ A monorepo makes it easier to:
 
 ## 7. Engine design
 
-The engine is the heart of Muxory.
+The engine is the heart of morphase.
 
 It contains five main modules:
 
@@ -442,7 +442,7 @@ Doctor is a first-class product feature, not an afterthought.
 
 ### 7.5 Job Manager
 
-Every operation in Muxory must be represented as a job.
+Every operation in morphase must be represented as a job.
 
 Even CLI mode should internally create a job.
 
@@ -464,7 +464,7 @@ This makes the future server and UI easy to add.
 
 ### 8.1 Resource kinds
 
-Muxory should reason about normalized resource kinds, not just file extensions.
+morphase should reason about normalized resource kinds, not just file extensions.
 
 Core resource kinds:
 - `markdown`
@@ -545,7 +545,7 @@ export type JobResult = {
   outputPaths: string[]
   logs: string[]
   warnings?: string[]
-  error?: MuxoryError
+  error?: morphaseError
 }
 ```
 
@@ -557,7 +557,7 @@ export type JobResult = {
 
 Plugins are the core extensibility mechanism.
 
-Muxory must make it easy to:
+morphase must make it easy to:
 - add a backend,
 - change a backend,
 - disable a backend,
@@ -637,7 +637,7 @@ export type ExecutionPlan = {
   expectedOutputs?: string[]
 }
 
-export interface MuxoryPlugin {
+export interface morphasePlugin {
   id: string
   name: string
   priority: number
@@ -727,7 +727,7 @@ The planner should return:
 
 ### 10.5 Pipelines
 
-Muxory should support curated multi-step pipelines, but only in a controlled way.
+morphase should support curated multi-step pipelines, but only in a controlled way.
 
 Examples:
 - `docx -> pdf -> markdown`
@@ -808,19 +808,19 @@ CLI should show concise summaries by default and raw logs in debug mode.
 
 ### 12.1 Why doctor is critical
 
-Muxory wraps many external tools. This creates environment variability.
+morphase wraps many external tools. This creates environment variability.
 
-To keep maintenance low, Muxory must diagnose problems well enough that users can solve most issues themselves.
+To keep maintenance low, morphase must diagnose problems well enough that users can solve most issues themselves.
 
 ### 12.2 Doctor commands
 
 ```bash
-muxory doctor
-muxory backend list
-muxory backend verify ffmpeg
-muxory backend status
-muxory backend install ffmpeg
-muxory backend update pandoc
+morphase doctor
+morphase backend list
+morphase backend verify ffmpeg
+morphase backend status
+morphase backend install ffmpeg
+morphase backend update pandoc
 ```
 
 ### 12.3 What doctor should report
@@ -837,13 +837,13 @@ For each backend:
 
 ### 12.4 Install/update philosophy
 
-Muxory should:
+morphase should:
 - detect package manager,
 - offer install/update commands,
 - optionally delegate to package manager after confirmation,
 - but **not** silently auto-update system tools.
 
-Muxory should not become a package manager.
+morphase should not become a package manager.
 
 It should only:
 - detect,
@@ -949,25 +949,25 @@ Its responsibilities:
 Initial command set:
 
 ```bash
-muxory
-muxory convert <input> <output>
-muxory extract <input> --to <format>
-muxory fetch <url> --to <format>
-muxory media <input> --to <format>
-muxory pdf merge <inputs...> -o <output>
-muxory pdf split <input> --pages <range> -o <output>
-muxory doctor
-muxory backend list
-muxory backend verify <backend>
-muxory backend install <backend>
-muxory backend update <backend>
-muxory explain <input> --to <format>
-muxory serve
+morphase
+morphase convert <input> <output>
+morphase extract <input> --to <format>
+morphase fetch <url> --to <format>
+morphase media <input> --to <format>
+morphase pdf merge <inputs...> -o <output>
+morphase pdf split <input> --pages <range> -o <output>
+morphase doctor
+morphase backend list
+morphase backend verify <backend>
+morphase backend install <backend>
+morphase backend update <backend>
+morphase explain <input> --to <format>
+morphase serve
 ```
 
 ### 14.3 Wizard flow details
 
-When user runs just `muxory`, launch guided flow.
+When user runs just `morphase`, launch guided flow.
 
 Questions:
 1. What do you want to do?
@@ -1324,7 +1324,7 @@ Use these defaults.
 
 ### 19.1 Install model
 
-Muxory should install only the **core product** first.
+morphase should install only the **core product** first.
 
 It should **not** install every backend upfront.
 
@@ -1358,9 +1358,9 @@ It also avoids forcing every user to install large tools like LibreOffice or FFm
 
 ### 20.1 Product philosophy
 
-Muxory should own **diagnosis**, not magical repair.
+morphase should own **diagnosis**, not magical repair.
 
-When something breaks, Muxory should:
+When something breaks, morphase should:
 - say what failed,
 - say why,
 - tell the user how to fix it,
@@ -1384,7 +1384,7 @@ Suggested normalized errors:
 ### 20.3 Error shape
 
 ```ts
-export type MuxoryError = {
+export type morphaseError = {
   code: string
   message: string
   likelyCause?: string
@@ -1428,7 +1428,7 @@ This kind of guidance is essential for low maintenance.
 
 ### 21.3 Legal posture
 
-Muxory must be positioned as:
+morphase must be positioned as:
 - a local conversion router,
 - not a rights-granting tool,
 - not a DRM bypass tool,
@@ -1442,10 +1442,10 @@ URL/media fetch plugins should be optional and explicitly user-responsibility.
 
 ### 22.1 Config file
 
-Muxory should support a user config file, for example:
+morphase should support a user config file, for example:
 
 ```text
-~/.muxory/config.json
+~/.morphase/config.json
 ```
 
 ### 22.2 Config scope
@@ -1544,7 +1544,7 @@ The repo must include:
 
 ### 24.1 README must include
 
-- what Muxory is,
+- what morphase is,
 - what it supports,
 - how to install core CLI,
 - how to run guided mode,
@@ -1568,14 +1568,14 @@ List:
 
 ### 25.1 Core repo dependencies
 
-Use automated dependency update tooling for Muxory’s own codebase.
+Use automated dependency update tooling for morphase’s own codebase.
 
 Recommended:
 - Dependabot or Renovate
 
 ### 25.2 External backend maintenance policy
 
-Muxory should **not** track every upstream release manually.
+morphase should **not** track every upstream release manually.
 
 Instead:
 - store minimum supported versions,
@@ -1621,7 +1621,7 @@ To keep the project maintainable:
 
 ### 26.3 Why TypeScript
 
-Because Muxory is mostly:
+Because morphase is mostly:
 - orchestration,
 - config,
 - routing,
@@ -1704,15 +1704,15 @@ Deliverables:
 Goal: make the product usable.
 
 Tasks:
-- `muxory convert`
-- `muxory extract`
-- `muxory fetch`
-- `muxory media`
-- `muxory pdf ...`
-- `muxory doctor`
-- `muxory backend list/verify/install/update`
-- `muxory explain`
-- interactive wizard for `muxory`
+- `morphase convert`
+- `morphase extract`
+- `morphase fetch`
+- `morphase media`
+- `morphase pdf ...`
+- `morphase doctor`
+- `morphase backend list/verify/install/update`
+- `morphase explain`
+- interactive wizard for `morphase`
 
 Deliverables:
 - beginner-friendly interactive CLI,
@@ -1771,10 +1771,10 @@ Deliverables:
 
 ### Phase 7 — Local API server
 
-Goal: make Muxory UI-ready.
+Goal: make morphase UI-ready.
 
 Tasks:
-- implement `muxory serve`,
+- implement `morphase serve`,
 - create Fastify/Express server,
 - expose health/capabilities/backends/jobs endpoints,
 - persist job state in memory first,
@@ -1796,7 +1796,7 @@ Tasks:
 - Dockerized self-hosted setup.
 
 Deliverables:
-- local browser-based Muxory interface.
+- local browser-based morphase interface.
 
 ### Phase 9 — Packaging and polish
 
@@ -1878,12 +1878,12 @@ If handing this to Claude or Codex, instruct it to implement in this order:
 
 ## 30. Minimal viable v1 checklist
 
-Muxory v1 is “good” when all of the following are true:
+morphase v1 is “good” when all of the following are true:
 
 - user can install core CLI,
-- `muxory` launches a guided wizard,
-- `muxory doctor` works,
-- `muxory explain` works,
+- `morphase` launches a guided wizard,
+- `morphase doctor` works,
+- `morphase explain` works,
 - `md -> pdf` works,
 - `docx -> pdf` works,
 - `pptx -> pdf` works,
@@ -1918,14 +1918,14 @@ Possible future features after core stability:
 
 ## 32. Final guidance
 
-Muxory succeeds if it remains:
+morphase succeeds if it remains:
 - opinionated,
 - consistent,
 - transparent,
 - local-first,
 - and easy to troubleshoot.
 
-The main failure mode to avoid is turning Muxory into a giant unstable “everything converter.”
+The main failure mode to avoid is turning morphase into a giant unstable “everything converter.”
 
 The correct strategy is:
 - keep the core clean,
@@ -1934,7 +1934,7 @@ The correct strategy is:
 - keep routing metadata-driven,
 - and grow capabilities only where there is a strong backend and testable route.
 
-If implemented this way, Muxory can become:
+If implemented this way, morphase can become:
 - a very useful CLI,
 - a strong self-hosted utility,
 - a great developer tool,

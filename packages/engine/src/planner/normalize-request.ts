@@ -1,15 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { deriveOperationOutputPath, deriveOutputPath, extensionForResourceKind, inferResourceKind, isUrl } from "@muxory/shared";
-import type { JobRequest, PlanRequest, ResourceKind, Route } from "@muxory/shared";
+import { deriveOperationOutputPath, deriveOutputPath, extensionForResourceKind, inferResourceKind, isUrl } from "@morphase/shared";
+import type { JobRequest, PlanRequest, ResourceKind, Route } from "@morphase/shared";
 
-import { createError } from "../errors/muxory-error.js";
+import { createError } from "../errors/morphase-error.js";
 import { detectPlatform } from "../platform/platform.js";
 
 function invocationCwd(): string {
-  if (process.env.MUXORY_CWD) {
-    return process.env.MUXORY_CWD;
+  if (process.env.MORPHASE_CWD) {
+    return process.env.MORPHASE_CWD;
   }
 
   if (process.env.INIT_CWD) {
@@ -119,7 +119,7 @@ export function normalizeRequest(
     if (!from) {
       throw createError({
         code: "INVALID_INPUT",
-        message: "Muxory could not determine the resource kind for this operation.",
+        message: "morphase could not determine the resource kind for this operation.",
         suggestedFixes: ["Pass --from explicitly to help route the request."]
       });
     }
@@ -146,10 +146,10 @@ export function normalizeRequest(
   if (!from || !to) {
     throw createError({
       code: "INVALID_INPUT",
-      message: "Muxory needs both the input kind and the desired output kind.",
+      message: "morphase needs both the input kind and the desired output kind.",
       suggestedFixes: [
         "Pass --from and --to explicitly.",
-        "Use a file extension Muxory can infer."
+        "Use a file extension morphase can infer."
       ]
     });
   }

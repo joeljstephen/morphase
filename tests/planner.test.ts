@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { Planner } from "../packages/engine/src/planner/planner.js";
 import { PluginRegistry } from "../packages/engine/src/registry/plugin-registry.js";
-import type { MuxoryConfig, MuxoryPlugin, PlanRequest } from "../packages/shared/src/index.js";
+import type { MorphaseConfig, MorphasePlugin, PlanRequest } from "../packages/shared/src/index.js";
 
-const baseConfig: MuxoryConfig = {
+const baseConfig: MorphaseConfig = {
   offlineOnly: false,
   preferredBackends: {},
   debug: false,
@@ -15,7 +15,7 @@ const baseConfig: MuxoryConfig = {
   }
 };
 
-function createPlugin(plugin: Partial<MuxoryPlugin> & Pick<MuxoryPlugin, "id" | "name" | "priority">): MuxoryPlugin {
+function createPlugin(plugin: Partial<MorphasePlugin> & Pick<MorphasePlugin, "id" | "name" | "priority">): MorphasePlugin {
   return {
     id: plugin.id,
     name: plugin.name,
@@ -389,7 +389,7 @@ describe("Planner", () => {
     expect(plan.selectedPluginId).toBe("summarize");
   });
 
-  it("generates equivalent command using muxory fetch for youtube-url routes", async () => {
+  it("generates equivalent command using morphase fetch for youtube-url routes", async () => {
     const registry = new PluginRegistry([
       createPlugin({
         id: "ytdlp",
@@ -430,11 +430,11 @@ describe("Planner", () => {
     };
 
     const plan = await planner.plan(request);
-    expect(plan.equivalentCommand).toContain("muxory fetch");
+    expect(plan.equivalentCommand).toContain("morphase fetch");
     expect(plan.equivalentCommand).toContain("--to mp4");
   });
 
-  it("generates equivalent command using muxory fetch for url routes", async () => {
+  it("generates equivalent command using morphase fetch for url routes", async () => {
     const registry = new PluginRegistry([
       createPlugin({
         id: "trafilatura",
@@ -476,7 +476,7 @@ describe("Planner", () => {
     };
 
     const plan = await planner.plan(request);
-    expect(plan.equivalentCommand).toContain("muxory fetch");
+    expect(plan.equivalentCommand).toContain("morphase fetch");
     expect(plan.equivalentCommand).toContain("--to markdown");
   });
 });

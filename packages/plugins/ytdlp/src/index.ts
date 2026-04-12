@@ -1,8 +1,8 @@
 import path from "node:path";
 
-import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
-import { runCommandCapture } from "@muxory/shared";
-import type { MuxoryPlugin, PlanRequest, Platform } from "@muxory/shared";
+import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import { runCommandCapture } from "@morphase/shared";
+import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
 
 import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
 
@@ -17,7 +17,7 @@ async function isFfmpegAvailable(): Promise<boolean> {
   return result.ok;
 }
 
-export const ytdlpPlugin: MuxoryPlugin = definePlugin({
+export const ytdlpPlugin: MorphasePlugin = definePlugin({
   id: "ytdlp",
   name: "yt-dlp",
   priority: 60,

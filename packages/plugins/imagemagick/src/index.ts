@@ -1,5 +1,5 @@
-import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
-import type { MuxoryPlugin, PlanRequest, Platform, Quality, ResourceKind } from "@muxory/shared";
+import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, Platform, Quality, ResourceKind } from "@morphase/shared";
 
 import { detectBinary, packageHints, supportsImageMagickFormat, verifyBinary } from "../../src/helpers.js";
 
@@ -14,7 +14,7 @@ async function selectedImageCommand(): Promise<string> {
   return detection.command ?? "magick";
 }
 
-export const imageMagickPlugin: MuxoryPlugin = definePlugin({
+export const imageMagickPlugin: MorphasePlugin = definePlugin({
   id: "imagemagick",
   name: "ImageMagick",
   priority: 100,

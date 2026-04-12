@@ -1,7 +1,7 @@
 import os from "node:os";
 
-import { runCommandCapture } from "@muxory/shared";
-import type { Platform } from "@muxory/shared";
+import { runCommandCapture } from "@morphase/shared";
+import type { Platform } from "@morphase/shared";
 
 export function detectPlatform(): Platform {
   switch (process.platform) {

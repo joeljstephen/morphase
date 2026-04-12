@@ -3,9 +3,9 @@ import { Command } from "commander";
 import { execa } from "execa";
 import prompts from "prompts";
 
-import { MuxoryEngine } from "@muxory/engine";
-import { createMuxoryServer } from "@muxory/server";
-import { inferResourceKind, isMediaUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@muxory/shared";
+import { MorphaseEngine } from "@morphase/engine";
+import { createMorphaseServer } from "@morphase/server";
+import { inferResourceKind, isMediaUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@morphase/shared";
 
 import { formatCliError, formatDoctorReport, formatJobResult } from "./format.js";
 import { runWizard } from "./wizard.js";
@@ -30,7 +30,7 @@ function buildRequest(options: Record<string, unknown>, partial: JobRequest): Jo
   };
 }
 
-async function handleJob(engine: MuxoryEngine, request: JobRequest, options?: { setExitCode?: boolean }) {
+async function handleJob(engine: MorphaseEngine, request: JobRequest, options?: { setExitCode?: boolean }) {
   try {
     const result = await engine.submit(request);
     console.log(formatJobResult(result));
@@ -45,7 +45,7 @@ async function handleJob(engine: MuxoryEngine, request: JobRequest, options?: { 
   }
 }
 
-async function printExplain(engine: MuxoryEngine, request: JobRequest) {
+async function printExplain(engine: MorphaseEngine, request: JobRequest) {
   const plan = await engine.explain(request);
   const dim = "\x1b[2m";
   const bold = "\x1b[1m";
@@ -71,7 +71,7 @@ async function printExplain(engine: MuxoryEngine, request: JobRequest) {
 }
 
 async function printBackendHints(
-  engine: MuxoryEngine,
+  engine: MorphaseEngine,
   backendId: string,
   mode: "install" | "update",
   run: boolean
@@ -109,10 +109,10 @@ async function printBackendHints(
 }
 
 async function main() {
-  const engine = await MuxoryEngine.create();
+  const engine = await MorphaseEngine.create();
   const program = new Command();
 
-  program.name("muxory").description("Local-first open-source conversion router — download from YouTube, Instagram, TikTok, Facebook, Twitter/X, and 1800+ sites");
+  program.name("morphase").description("Local-first open-source conversion router — download from YouTube, Instagram, TikTok, Facebook, Twitter/X, and 1800+ sites");
 
   collectCommonOptions(
     program.command("convert <input> <output>").description("Convert a file from one format to another")
@@ -363,7 +363,7 @@ async function main() {
       }
     });
 
-  collectCommonOptions(program.command("explain <input>").description("Explain how Muxory would route a request"))
+  collectCommonOptions(program.command("explain <input>").description("Explain how morphase would route a request"))
     .requiredOption("--to <format>", "Desired output format")
     .action(async (input, options) => {
       try {
@@ -381,15 +381,16 @@ async function main() {
 
   program
     .command("serve")
+    .description("[experimental] Start a local HTTP API server")
     .option("--host <host>", "Host to bind to")
     .option("--port <port>", "Port to bind to", (value) => Number(value))
     .action(async (options) => {
       try {
-        const { app } = await createMuxoryServer(engine);
+        const { app } = await createMorphaseServer(engine);
         const host = (options.host as string | undefined) ?? engine.getConfig().server.host;
         const port = (options.port as number | undefined) ?? engine.getConfig().server.port;
         await app.listen({ host, port });
-        console.log(`Muxory server listening on http://${host}:${port}`);
+        console.log(`morphase server listening on http://${host}:${port}`);
       } catch (error) {
         console.log(formatCliError(error));
       }

@@ -1,5 +1,5 @@
-import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
-import type { MuxoryPlugin, PlanRequest, Platform, ResourceKind } from "@muxory/shared";
+import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
 import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
 
@@ -10,7 +10,7 @@ const installHints = packageHints(
   ["MarkItDown is a Python package and is commonly installed via pip."]
 );
 
-export const markitdownPlugin: MuxoryPlugin = definePlugin({
+export const markitdownPlugin: MorphasePlugin = definePlugin({
   id: "markitdown",
   name: "MarkItDown",
   priority: 80,

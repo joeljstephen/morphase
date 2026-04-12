@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type { BackendDoctorReport, JobResult, MuxoryError } from "@muxory/shared";
+import type { BackendDoctorReport, JobResult, MorphaseError } from "@morphase/shared";
 
 const green = "\x1b[32m";
 const red = "\x1b[31m";
@@ -23,7 +23,7 @@ function labeled(label: string, value: string): string {
 
 export function formatCliError(error: unknown): string {
   if (error instanceof Error && "details" in error) {
-    const details = (error as { details: MuxoryError }).details;
+    const details = (error as { details: MorphaseError }).details;
     const lines: string[] = [
       "",
       `  ${red}✗${reset}  ${bold}${details.message}${reset}`

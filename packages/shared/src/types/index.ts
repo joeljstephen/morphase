@@ -131,7 +131,7 @@ export type PipelineDefinition = {
   quality: Quality;
 };
 
-export type MuxoryError = {
+export type MorphaseError = {
   code: string;
   message: string;
   likelyCause?: string;
@@ -163,7 +163,7 @@ export type JobResult = {
   outputPaths: string[];
   logs: string[];
   warnings?: string[];
-  error?: MuxoryError;
+  error?: MorphaseError;
   equivalentCommand?: string;
 };
 
@@ -178,7 +178,7 @@ export type JobRecord = {
   logs: string[];
   warnings: string[];
   outputPaths: string[];
-  error?: MuxoryError;
+  error?: MorphaseError;
   result?: JobResult;
 };
 
@@ -218,7 +218,7 @@ export type PlannedExecution = {
   equivalentCommand?: string;
 };
 
-export interface MuxoryPlugin {
+export interface MorphasePlugin {
   id: string;
   name: string;
   priority: number;

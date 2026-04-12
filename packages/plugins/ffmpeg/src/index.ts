@@ -1,5 +1,5 @@
-import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
-import type { MuxoryPlugin, PlanRequest, Platform, ResourceKind } from "@muxory/shared";
+import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
 import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
 
@@ -11,7 +11,7 @@ const installHints = packageHints(
 
 const videoKinds: ResourceKind[] = ["mp4", "mov", "mkv"];
 
-export const ffmpegPlugin: MuxoryPlugin = definePlugin({
+export const ffmpegPlugin: MorphasePlugin = definePlugin({
   id: "ffmpeg",
   name: "FFmpeg",
   priority: 100,
@@ -21,7 +21,7 @@ export const ffmpegPlugin: MuxoryPlugin = definePlugin({
     "Lossy transcoding routes reduce fidelity."
   ],
   capabilities() {
-    const caps: ReturnType<MuxoryPlugin["capabilities"]> = [
+    const caps: ReturnType<MorphasePlugin["capabilities"]> = [
       {
         kind: "convert",
         from: "mp4",

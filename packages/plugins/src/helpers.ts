@@ -1,7 +1,7 @@
 import path from "node:path";
 
-import { detectFirstAvailableCommand } from "@muxory/plugin-sdk";
-import { parseFirstSemver, runCommandCapture, type DetectionResult, type ExecutionPlan, type InstallHint, type Platform } from "@muxory/shared";
+import { detectFirstAvailableCommand } from "@morphase/plugin-sdk";
+import { parseFirstSemver, runCommandCapture, type DetectionResult, type ExecutionPlan, type InstallHint, type Platform } from "@morphase/shared";
 
 export async function detectBinary(
   commands: string[],

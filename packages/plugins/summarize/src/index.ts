@@ -1,5 +1,5 @@
-import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
-import type { MuxoryPlugin, PlanRequest, Platform } from "@muxory/shared";
+import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
 
 import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
 
@@ -10,7 +10,7 @@ const installHints = packageHints(
   ["Alternative: brew install summarize", "Requires Node 22+"]
 );
 
-export const summarizePlugin: MuxoryPlugin = definePlugin({
+export const summarizePlugin: MorphasePlugin = definePlugin({
   id: "summarize",
   name: "summarize",
   priority: 70,

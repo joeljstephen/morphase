@@ -1,70 +1,301 @@
-# Muxory
+# Morphase
 
-Muxory is a local-first, open-source conversion router. It presents one CLI and one shared engine across documents, PDFs, images, media, and web extraction, then routes each request to the best available backend such as Pandoc, LibreOffice, FFmpeg, qpdf, ImageMagick, Trafilatura, MarkItDown, Docling, yt-dlp, or Whisper.
+**Local-first, open-source conversion router for files and media.**
 
-## What it supports
+Morphase converts documents, images, audio, video, and web pages using the best tool for the job — all on your machine, no cloud uploads required. It routes your request to the right backend automatically, so you never have to remember which tool handles which format.
 
-- Documents and markup: `md -> pdf`, `md -> docx`, `html -> pdf`, `html -> md`, `docx -> pdf`, `pptx -> pdf`, `xlsx -> pdf`
-- PDF operations: `pdf -> markdown`, `pdf -> txt`, `pdf merge`, `pdf split`, `pdf optimize`
-- Images: `jpg -> png`, `png -> jpg`, `webp -> png`, `webp -> jpg`, `heic -> jpg/png` best effort
-- Audio and video: `mp4 -> mp3`, `mov -> mp4`, `mkv -> mp4`, `wav -> mp3`, `mp3 -> wav`
-- Web extraction: `url -> markdown`, `url -> txt`
-- Optional plugins: YouTube fetch and local transcription
+## Highlights
 
-## Install
+- **Local-first** — files never leave your machine unless you explicitly fetch from the internet
+- **Smart routing** — picks the best backend for your conversion, with scoring, fallbacks, and multi-step pipelines
+- **Plugin-based** — each backend (FFmpeg, Pandoc, LibreOffice, etc.) is an isolated plugin detected at runtime
+- **Interactive wizard** — run `morphase` with no arguments for a guided experience
+- **Explain mode** — see exactly what Morphase will do before it does it
 
-1. Install the workspace dependencies with `pnpm install`
-2. Build the monorepo with `pnpm build`
-3. Run the CLI with `pnpm --filter muxory-cli dev` during development or execute the built binary from `apps/cli/dist/index.js`
-
-Muxory intentionally does not install every backend up front. It detects them on demand and explains how to install or update them when you need a route.
-
-## Guided mode
-
-Run:
+## Installation
 
 ```bash
-muxory
+# Install globally
+npm install -g morphase
+
+# Or run without installing
+npx morphase --help
 ```
 
-This launches the beginner-friendly wizard, asks what you want to do, plans the route, checks backend availability, and then shows the equivalent direct command after execution.
+Morphase is a thin CLI in Node.js. The heavy lifting is done by external backends like FFmpeg, Pandoc, and LibreOffice, which you install separately through your system package manager. Morphase detects what you have at runtime and only offers routes you can actually run.
 
-## Direct commands
+## Quick Start
 
 ```bash
-muxory convert deck.pptx deck.pdf
-muxory extract paper.pdf --to markdown
-muxory fetch https://example.com/article --to markdown
-muxory media input.mp4 --to mp3
-muxory pdf merge a.pdf b.pdf -o merged.pdf
-muxory pdf split report.pdf --pages 1-3 -o excerpt.pdf
-muxory doctor
-muxory backend verify ffmpeg
-muxory explain notes.md --to pdf
-muxory serve
+# Interactive wizard (just run morphase with no arguments)
+morphase
+
+# Convert files
+morphase convert presentation.pptx presentation.pdf
+morphase convert README.md README.docx
+morphase convert photo.heic photo.jpg
+morphase convert recording.wav recording.mp3
+
+# Extract content
+morphase extract paper.pdf --to markdown
+morphase extract https://example.com --to markdown
+
+# Fetch media from URLs
+morphase fetch https://youtube.com/watch?v=dQw4w9WgXcQ --to mp3
+morphase fetch https://youtube.com/watch?v=dQw4w9WgXcQ --to transcript
+
+# Compress media
+morphase image compress photo.jpg
+morphase video compress movie.mov
+
+# PDF operations
+morphase pdf merge chapter1.pdf chapter2.pdf chapter3.pdf -o book.pdf
+morphase pdf split report.pdf --pages 1-3,5 -o excerpt.pdf
+morphase pdf optimize large.pdf -o smaller.pdf
+
+# Diagnose your setup
+morphase doctor
+morphase backend list
+morphase backend verify ffmpeg
+
+# See what Morphase would do (without running anything)
+morphase explain deck.pptx --to pdf
 ```
 
-## Backend installation and doctor
+## How It Works
 
-Use `muxory doctor` to inspect the whole backend matrix. Use `muxory backend verify <id>` for one backend and `muxory backend install <id>` or `muxory backend update <id>` to print the correct package-manager command for the current platform.
+```
+  Your command  →  Morphase Engine  →  Best matching plugin  →  External tool
+```
 
-## Server mode
+1. You describe what you want (e.g. convert a PPTX to PDF)
+2. The engine normalizes your request, infers the input/output types, and identifies the route
+3. The planner scores every plugin that can handle the route (considering install status, health, quality, and preferences)
+4. The highest-scoring installed plugin builds an execution plan
+5. The executor runs the plan, validates outputs, and returns the result
 
-Run:
+If no single plugin can handle the route, Morphase checks curated multi-step pipelines (e.g. Markdown → DOCX → PDF chains Pandoc into LibreOffice).
+
+## Stable Commands
+
+All commands below are stable and tested:
+
+| Command | Description |
+|---------|-------------|
+| `morphase convert <input> <output>` | Convert a file from one format to another |
+| `morphase extract <input> --to <format>` | Extract content to text, markdown, etc. |
+| `morphase fetch <url> --to <format>` | Download from a URL (YouTube, media sites, web pages) |
+| `morphase media <input> --to <format>` | Convert audio or video formats |
+| `morphase image compress <input>` | Compress a JPEG or PNG image |
+| `morphase video compress <input>` | Compress a video file |
+| `morphase pdf merge <inputs...> -o <out>` | Merge multiple PDFs |
+| `morphase pdf split <input> --pages <range> -o <out>` | Extract pages from a PDF |
+| `morphase pdf optimize <input> -o <out>` | Optimize/reduce PDF file size |
+| `morphase doctor` | Inspect health of all backends |
+| `morphase backend verify <id>` | Verify a specific backend |
+| `morphase backend list` | Show installed/uninstalled backends |
+| `morphase explain <input> --to <format>` | Show the plan without executing |
+
+### Common Options
+
+All conversion commands accept:
+
+| Flag | Description |
+|------|-------------|
+| `--from <kind>` | Explicitly set the input resource kind |
+| `--backend <id>` | Force a specific backend plugin |
+| `--offline` | Only use offline-capable backends |
+| `--debug` | Enable debug logging |
+| `--dry-run` | Plan the job without executing it |
+
+## Stable vs. Experimental
+
+### Stable Plugins
+
+| Plugin | ID | Handles | External Tool |
+|--------|-----|---------|---------------|
+| Pandoc | `pandoc` | Markdown/HTML → PDF, DOCX, TXT | `pandoc` |
+| LibreOffice | `libreoffice` | DOCX/PPTX/XLSX/ODF → PDF | `soffice` |
+| FFmpeg | `ffmpeg` | Audio/video conversion, video compression | `ffmpeg` |
+| ImageMagick | `imagemagick` | Image format conversion (JPG, PNG, WebP, HEIC) | `magick` |
+| qpdf | `qpdf` | PDF merge, split, optimize | `qpdf` |
+| Trafilatura | `trafilatura` | Web page → Markdown/text extraction | `trafilatura` |
+| yt-dlp | `ytdlp` | YouTube/media site downloads | `yt-dlp` |
+
+### Experimental Plugins
+
+| Plugin | ID | Handles | External Tool |
+|--------|-----|---------|---------------|
+| Whisper | `whisper` | Audio/video → transcript (local transcription) | `whisper` |
+| MarkItDown | `markitdown` | PDF/Office files → Markdown | `markitdown` |
+| jpegoptim | `jpegoptim` | JPEG compression | `jpegoptim` |
+| optipng | `optipng` | PNG compression | `optipng` |
+| summarize | `summarize` | YouTube transcript extraction | `summarize` |
+
+Experimental plugins are functional but may have rough edges or narrower platform support.
+
+### Removed Plugins
+
+`docling`, `jina`, and `pngquant` have been removed from the project.
+
+## Backend Philosophy
+
+Morphase does **not** bundle any conversion tools. Each backend is a separate, independently installed tool (FFmpeg, Pandoc, LibreOffice, etc.) that you install through your system's package manager. Morphase:
+
+- **Detects** what you have installed at runtime
+- **Scores** each available backend for quality and health
+- **Falls back** to alternatives if the preferred backend is missing or unhealthy
+- **Tells you** exactly what to install when something is missing
+
+This means Morphase stays small, and you only install the backends you actually need.
+
+## doctor and explain Workflow
+
+### Diagnosing Problems
 
 ```bash
-muxory serve
+# Check the health of every backend
+morphase doctor
+
+# Quick list of what's installed vs. missing
+morphase backend list
+
+# Verify a specific backend in detail
+morphase backend verify ffmpeg
+
+# Get an install hint for a missing backend
+morphase backend install ffmpeg
+
+# Run the install command (with confirmation prompt)
+morphase backend install ffmpeg --run
 ```
 
-By default the Fastify server binds to `127.0.0.1:3210` and exposes health, capabilities, backend info, and job endpoints using the same engine as the CLI.
+`morphase doctor` reports on every backend: whether it's installed, which version, if it meets the minimum version requirement, verification issues, and platform-specific install instructions.
 
-## Repository layout
+### Previewing Plans
 
-- `apps/cli`: interactive and direct CLI
-- `apps/server`: local API server
-- `packages/engine`: routing, planning, execution, doctor, jobs, config, platform
-- `packages/plugin-sdk`: plugin authoring helpers
-- `packages/plugins`: builtin backend plugins
-- `packages/shared`: shared types, schemas, constants, and utilities
-- `docs`: architecture and support docs
-- `tests`: planner and plugin tests
+```bash
+morphase explain deck.pptx --to pdf
+```
+
+This shows you which plugin Morphase would use, why it chose it, and any fallbacks — without running anything. Useful for debugging or understanding routing decisions.
+
+## Supported Platforms
+
+Official support covers three environments. Everything else is best-effort.
+
+| OS | Package Manager | Install Example |
+|----|----------------|-----------------|
+| macOS | Homebrew | `brew install ffmpeg` |
+| Windows | WinGet | `winget install Gyan.FFmpeg` |
+| Ubuntu / Debian | apt-get | `sudo apt-get install ffmpeg` |
+
+Morphase auto-detects your OS and package manager to provide tailored install hints.
+
+## Route Matrix
+
+Common conversion routes and their preferred backends:
+
+| Route | Backend | Quality | Local-only |
+|-------|---------|---------|------------|
+| Markdown → PDF | Pandoc | High | Yes |
+| Markdown → DOCX | Pandoc | High | Yes |
+| HTML → PDF | Pandoc | Medium | Yes |
+| HTML → Markdown | Pandoc | High | Yes |
+| DOCX/PPTX/XLSX → PDF | LibreOffice | High | Yes |
+| PDF → Markdown | MarkItDown | Medium | Yes |
+| URL → Markdown | Trafilatura | High | No |
+| JPG ↔ PNG | ImageMagick | High | Yes |
+| HEIC → JPG/PNG | ImageMagick | High | Yes |
+| MP4 → MP3 | FFmpeg | Medium | Yes |
+| MOV → MP4 | FFmpeg | Medium | Yes |
+| WAV → MP3 | FFmpeg | Medium | Yes |
+| PDF merge/split/optimize | qpdf | High | Yes |
+| YouTube → MP4/MP3 | yt-dlp | Medium | No |
+| YouTube → transcript | summarize / yt-dlp | High/Medium | No |
+| Media site download | yt-dlp | Medium | No |
+
+Multi-step pipelines handle routes with no direct backend (e.g. Markdown → PDF chains Pandoc and LibreOffice).
+
+## Configuration
+
+Morphase reads optional configuration from `~/.morphase/config.json`:
+
+```json
+{
+  "offlineOnly": false,
+  "preferredBackends": {},
+  "debug": false,
+  "allowPackageManagerDelegation": false,
+  "server": { "host": "127.0.0.1", "port": 3210 }
+}
+```
+
+If the file is missing or invalid, defaults are used. You can override the preferred backend for any route via `preferredBackends` or the `--backend` CLI flag.
+
+## Legal Notice
+
+Some Morphase plugins can download media from YouTube, Instagram, TikTok, X/Twitter, Reddit, and other sites. Users are solely responsible for ensuring their use complies with the terms of service of the source platform and with applicable copyright and intellectual property laws. Morphase does not host, cache, or redistribute any downloaded content.
+
+## Privacy
+
+Morphase is local-first by design:
+
+- **No cloud uploads** — file conversions happen entirely on your machine
+- **No telemetry** — Morphase does not phone home or collect usage data
+- **No accounts** — no sign-up, no API keys, no user tracking
+- **Network is opt-in** — only `fetch` and `trafilatura` plugins use the network; all other routes work offline
+
+## Development
+
+Morphase is a pnpm monorepo:
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm build
+
+# Type check
+pnpm typecheck
+
+# Run tests
+pnpm test
+
+# Run CLI in dev mode
+pnpm dev
+
+# Run tests in watch mode
+pnpm test:watch
+```
+
+### Project Structure
+
+```
+morphase/
+  apps/
+    cli/                    # CLI (Commander + interactive wizard)
+    server/                 # Local API server (Fastify, experimental)
+  packages/
+    shared/                 # Types, schemas, constants, utilities
+    engine/                 # Core routing, planning, execution engine
+    plugin-sdk/             # Plugin authoring helpers
+    plugins/                # All builtin backend plugins
+  docs/                     # Architecture, route matrix, support matrix
+  tests/                    # Planner, plugin, and normalize-request tests
+```
+
+### Contributing
+
+Contributions are welcome. Good entry points:
+
+- **New plugins** — implement the `MorphasePlugin` interface in `packages/plugins/`. Use `definePlugin()` from `@morphase/plugin-sdk` for type safety.
+- **Bug fixes** — check the issue tracker for known bugs or run `morphase doctor` to find backend-specific issues.
+- **Route coverage** — add new conversion routes to existing plugins by extending their `capabilities()` and `plan()` methods.
+- **Tests** — the test suite lives in `tests/`. Add cases for new routes, edge cases, or platform-specific behavior.
+- **Documentation** — improve guides, examples, or doc strings.
+
+## License
+
+[MIT](LICENSE) © Morphase contributors

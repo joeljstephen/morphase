@@ -1,19 +1,19 @@
 # Example Commands
 
 ```bash
-muxory
-muxory convert slides.pptx slides.pdf
-muxory fetch https://example.com/post --to markdown
-muxory pdf merge a.pdf b.pdf -o merged.pdf
-muxory backend verify libreoffice
+morphase
+morphase convert slides.pptx slides.pdf
+morphase fetch https://example.com/post --to markdown
+morphase pdf merge a.pdf b.pdf -o merged.pdf
+morphase backend verify libreoffice
 
 # YouTube and media URLs
-muxory fetch "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --to transcript
-muxory fetch "https://youtu.be/dQw4w9WgXcQ" --to mp4
-muxory fetch "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --to mp3 -o podcast.mp3
-muxory explain "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --to transcript
-muxory doctor
-muxory backend verify summarize
-muxory backend verify ytdlp
-muxory backend verify ffmpeg
+morphase fetch "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --to transcript
+morphase fetch "https://youtu.be/dQw4w9WgXcQ" --to mp4
+morphase fetch "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --to mp3 -o podcast.mp3
+morphase explain "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --to transcript
+morphase doctor
+morphase backend verify summarize
+morphase backend verify ytdlp
+morphase backend verify ffmpeg
 ```

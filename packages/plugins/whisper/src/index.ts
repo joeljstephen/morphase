@@ -1,5 +1,5 @@
-import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
-import type { MuxoryPlugin, PlanRequest, Platform, ResourceKind } from "@muxory/shared";
+import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
 import { detectBinary, packageHints, verifyBinary, whisperGeneratedTranscript } from "../../src/helpers.js";
 
@@ -10,7 +10,7 @@ const installHints = packageHints(
   ["Whisper CLI is a Python package and may need FFmpeg installed as well."]
 );
 
-export const whisperPlugin: MuxoryPlugin = definePlugin({
+export const whisperPlugin: MorphasePlugin = definePlugin({
   id: "whisper",
   name: "Whisper",
   priority: 65,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const muxoryConfigSchema = z.object({
+export const morphaseConfigSchema = z.object({
   offlineOnly: z.boolean().default(false),
   preferredBackends: z.record(z.string(), z.string()).default({}),
   debug: z.boolean().default(false),
@@ -13,4 +13,4 @@ export const muxoryConfigSchema = z.object({
     .default({ host: "127.0.0.1", port: 3210 })
 });
 
-export type MuxoryConfig = z.infer<typeof muxoryConfigSchema>;
+export type MorphaseConfig = z.infer<typeof morphaseConfigSchema>;

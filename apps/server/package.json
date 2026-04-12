@@ -1,5 +1,5 @@
 {
-  "name": "@muxory/server",
+  "name": "@morphase/server",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
@@ -9,8 +9,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@muxory/engine": "workspace:*",
-    "@muxory/shared": "workspace:*",
+    "@morphase/engine": "workspace:*",
+    "@morphase/shared": "workspace:*",
     "fastify": "^5.6.1"
   }
 }

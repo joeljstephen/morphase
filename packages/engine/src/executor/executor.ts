@@ -3,12 +3,12 @@ import path from "node:path";
 
 import { execa } from "execa";
 
-import type { JobRequest, JobResult, MuxoryError, PlannedExecution } from "@muxory/shared";
+import type { JobRequest, JobResult, MorphaseError, PlannedExecution } from "@morphase/shared";
 
-import { createError } from "../errors/muxory-error.js";
+import { createError } from "../errors/morphase-error.js";
 import { Logger } from "../logging/logger.js";
 
-export function enrichError(pluginId: string, error: MuxoryError, stderr: string): MuxoryError {
+export function enrichError(pluginId: string, error: MorphaseError, stderr: string): MorphaseError {
   if (pluginId === "ffmpeg" && /does not contain any stream/i.test(stderr)) {
     return {
       ...error,
@@ -55,7 +55,7 @@ export function enrichError(pluginId: string, error: MuxoryError, stderr: string
       ...error,
       likelyCause: "YouTube is requiring authentication or blocking the request.",
       suggestedFixes: [
-        "Update yt-dlp to the latest version (muxory backend update ytdlp).",
+        "Update yt-dlp to the latest version (morphase backend update ytdlp).",
         "YouTube may be rate-limiting or blocking automated requests."
       ]
     };
@@ -79,7 +79,7 @@ export function enrichError(pluginId: string, error: MuxoryError, stderr: string
       likelyCause: "The video does not have subtitles or auto-generated captions in the requested language.",
       suggestedFixes: [
         "This platform or video may not provide subtitles.",
-        "Try saving as MP4 instead: muxory fetch \"<url>\" --to mp4"
+        "Try saving as MP4 instead: morphase fetch \"<url>\" --to mp4"
       ]
     };
   }
@@ -101,7 +101,7 @@ export function enrichError(pluginId: string, error: MuxoryError, stderr: string
       likelyCause: "summarize could not extract a transcript from this content.",
       suggestedFixes: [
         "The video may not have subtitles or transcript data available.",
-        "Try the yt-dlp fallback: muxory fetch \"<url>\" --to transcript --backend ytdlp"
+        "Try the yt-dlp fallback: morphase fetch \"<url>\" --to transcript --backend ytdlp"
       ]
     };
   }
@@ -206,16 +206,16 @@ export class Executor {
           outputPaths.add(step.plan.stdoutFile);
         }
       } catch (error) {
-        const baseError: MuxoryError =
+        const baseError: MorphaseError =
           error instanceof Error && "details" in error
-            ? (error as { details: MuxoryError }).details
+            ? (error as { details: MorphaseError }).details
             : {
                 code: "BACKEND_EXECUTION_FAILED",
                 message: error instanceof Error ? error.message : String(error),
                 backendId: step.pluginId
               };
 
-        const muxoryError = enrichError(
+        const MorphaseError = enrichError(
           step.pluginId,
           baseError,
           baseError.rawStderr ?? (error instanceof Error ? error.message : "")
@@ -228,7 +228,7 @@ export class Executor {
           outputPaths: [...outputPaths],
           logs,
           warnings,
-          error: muxoryError,
+          error: MorphaseError,
           equivalentCommand: execution.equivalentCommand
         };
       }
@@ -253,7 +253,7 @@ export class Executor {
         warnings,
         error: {
           code: "OUTPUT_NOT_PRODUCED",
-          message: "The backend completed but Muxory could not find the expected output files.",
+          message: "The backend completed but morphase could not find the expected output files.",
           backendId: execution.selectedPluginId
         },
         equivalentCommand: execution.equivalentCommand

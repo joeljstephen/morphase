@@ -1,4 +1,4 @@
-import type { PipelineDefinition } from "@muxory/shared";
+import type { PipelineDefinition } from "@morphase/shared";
 
 export const curatedPipelines: PipelineDefinition[] = [
   {

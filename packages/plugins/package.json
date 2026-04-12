@@ -1,5 +1,5 @@
 {
-  "name": "@muxory/plugins",
+  "name": "@morphase/plugins",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
@@ -9,8 +9,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@muxory/plugin-sdk": "workspace:*",
-    "@muxory/shared": "workspace:*"
+    "@morphase/plugin-sdk": "workspace:*",
+    "@morphase/shared": "workspace:*"
   }
 }
 

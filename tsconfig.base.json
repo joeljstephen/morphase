@@ -15,11 +15,11 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@muxory/shared": ["packages/shared/src/index.ts"],
-      "@muxory/plugin-sdk": ["packages/plugin-sdk/src/index.ts"],
-      "@muxory/plugins": ["packages/plugins/src/index.ts"],
-      "@muxory/engine": ["packages/engine/src/index.ts"],
-      "@muxory/server": ["apps/server/src/index.ts"]
+      "@morphase/shared": ["packages/shared/src/index.ts"],
+      "@morphase/plugin-sdk": ["packages/plugin-sdk/src/index.ts"],
+      "@morphase/plugins": ["packages/plugins/src/index.ts"],
+      "@morphase/engine": ["packages/engine/src/index.ts"],
+      "@morphase/server": ["apps/server/src/index.ts"]
     }
   }
 }

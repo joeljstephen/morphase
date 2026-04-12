@@ -29,13 +29,13 @@ importers:
 
   apps/cli:
     dependencies:
-      '@muxory/engine':
+      '@morphase/engine':
         specifier: workspace:*
         version: link:../../packages/engine
-      '@muxory/server':
+      '@morphase/server':
         specifier: workspace:*
         version: link:../server
-      '@muxory/shared':
+      '@morphase/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       commander:
@@ -50,10 +50,10 @@ importers:
 
   apps/server:
     dependencies:
-      '@muxory/engine':
+      '@morphase/engine':
         specifier: workspace:*
         version: link:../../packages/engine
-      '@muxory/shared':
+      '@morphase/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       fastify:
@@ -62,13 +62,13 @@ importers:
 
   packages/engine:
     dependencies:
-      '@muxory/plugin-sdk':
+      '@morphase/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
-      '@muxory/plugins':
+      '@morphase/plugins':
         specifier: workspace:*
         version: link:../plugins
-      '@muxory/shared':
+      '@morphase/shared':
         specifier: workspace:*
         version: link:../shared
       execa:
@@ -77,16 +77,16 @@ importers:
 
   packages/plugin-sdk:
     dependencies:
-      '@muxory/shared':
+      '@morphase/shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/plugins:
     dependencies:
-      '@muxory/plugin-sdk':
+      '@morphase/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
-      '@muxory/shared':
+      '@morphase/shared':
         specifier: workspace:*
         version: link:../shared
 

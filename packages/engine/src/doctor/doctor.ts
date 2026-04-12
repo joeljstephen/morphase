@@ -1,7 +1,7 @@
-import type { BackendDoctorReport, MuxoryPlugin, Platform } from "@muxory/shared";
+import type { BackendDoctorReport, MorphasePlugin, Platform } from "@morphase/shared";
 
 export class Doctor {
-  async inspectBackend(plugin: MuxoryPlugin, platform: Platform): Promise<BackendDoctorReport> {
+  async inspectBackend(plugin: MorphasePlugin, platform: Platform): Promise<BackendDoctorReport> {
     const detection = await plugin.detect(platform);
     const verification = detection.installed
       ? await plugin.verify(platform)
@@ -23,7 +23,7 @@ export class Doctor {
     };
   }
 
-  async inspectAll(plugins: MuxoryPlugin[], platform: Platform): Promise<BackendDoctorReport[]> {
+  async inspectAll(plugins: MorphasePlugin[], platform: Platform): Promise<BackendDoctorReport[]> {
     return Promise.all(plugins.map((plugin) => this.inspectBackend(plugin, platform)));
   }
 }

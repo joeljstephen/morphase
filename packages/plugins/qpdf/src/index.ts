@@ -1,5 +1,5 @@
-import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
-import type { MuxoryPlugin, PlanRequest, Platform } from "@muxory/shared";
+import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
 
 import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
 
@@ -9,14 +9,14 @@ const installHints = packageHints(
   "sudo apt-get install qpdf"
 );
 
-export const qpdfPlugin: MuxoryPlugin = definePlugin({
+export const qpdfPlugin: MorphasePlugin = definePlugin({
   id: "qpdf",
   name: "qpdf",
   priority: 100,
   minimumVersion: "11.0.0",
   commonProblems: [
     "qpdf handles structural PDF operations, not text extraction.",
-    "Split in Muxory uses explicit page-range extraction for deterministic output paths."
+    "Split in morphase uses explicit page-range extraction for deterministic output paths."
   ],
   capabilities() {
     return [
@@ -37,7 +37,7 @@ export const qpdfPlugin: MuxoryPlugin = definePlugin({
         quality: "high",
         offline: true,
         platforms: ["macos", "windows", "linux"],
-        notes: ["Muxory's split command extracts the requested page range to a new PDF."]
+        notes: ["morphase's split command extracts the requested page range to a new PDF."]
       },
       {
         kind: "transform",

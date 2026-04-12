@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { JobRecord, JobRequest, JobResult, JobStatus, Route } from "@muxory/shared";
+import type { JobRecord, JobRequest, JobResult, JobStatus, Route } from "@morphase/shared";
 
 function now(): string {
   return new Date().toISOString();

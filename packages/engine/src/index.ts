@@ -1,9 +1,9 @@
-import { builtinPlugins } from "@muxory/plugins";
-import type { BackendDoctorReport, JobRecord, JobRequest, JobResult, MuxoryConfig, MuxoryPlugin, PlannedExecution } from "@muxory/shared";
+import { builtinPlugins } from "@morphase/plugins";
+import type { BackendDoctorReport, JobRecord, JobRequest, JobResult, MorphaseConfig, MorphasePlugin, PlannedExecution } from "@morphase/shared";
 
-import { loadMuxoryConfig } from "./config/load-config.js";
+import { loadMorphaseConfig } from "./config/load-config.js";
 import { Doctor } from "./doctor/doctor.js";
-import { createError } from "./errors/muxory-error.js";
+import { createError } from "./errors/morphase-error.js";
 import { Executor } from "./executor/executor.js";
 import { JobManager } from "./jobs/job-manager.js";
 import { Logger } from "./logging/logger.js";
@@ -12,7 +12,7 @@ import { normalizeRequest, toPlanRequest } from "./planner/normalize-request.js"
 import { Planner } from "./planner/planner.js";
 import { PluginRegistry } from "./registry/plugin-registry.js";
 
-export class MuxoryEngine {
+export class MorphaseEngine {
   private readonly registry: PluginRegistry;
   private readonly planner: Planner;
   private readonly executor: Executor;
@@ -21,8 +21,8 @@ export class MuxoryEngine {
   private readonly logger: Logger;
 
   private constructor(
-    private readonly config: MuxoryConfig,
-    plugins: MuxoryPlugin[]
+    private readonly config: MorphaseConfig,
+    plugins: MorphasePlugin[]
   ) {
     this.registry = new PluginRegistry(plugins);
     this.planner = new Planner(this.registry, config);
@@ -31,16 +31,16 @@ export class MuxoryEngine {
     this.doctor = new Doctor();
   }
 
-  static async create(plugins: MuxoryPlugin[] = builtinPlugins): Promise<MuxoryEngine> {
-    const config = await loadMuxoryConfig();
-    return new MuxoryEngine(config, plugins);
+  static async create(plugins: MorphasePlugin[] = builtinPlugins): Promise<MorphaseEngine> {
+    const config = await loadMorphaseConfig();
+    return new MorphaseEngine(config, plugins);
   }
 
-  getConfig(): MuxoryConfig {
+  getConfig(): MorphaseConfig {
     return this.config;
   }
 
-  listPlugins(): MuxoryPlugin[] {
+  listPlugins(): MorphasePlugin[] {
     return this.registry.list();
   }
 

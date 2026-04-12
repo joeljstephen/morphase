@@ -7,16 +7,16 @@ import {
   extensionForResourceKind,
   routeKey,
   type Capability,
-  type MuxoryConfig,
+  type MorphaseConfig,
   type PlannedExecution,
   type PlannerCandidate,
   type PlanRequest,
   type PlannedStep,
   type PipelineDefinition,
   type ResourceKind
-} from "@muxory/shared";
+} from "@morphase/shared";
 
-import { createError } from "../errors/muxory-error.js";
+import { createError } from "../errors/morphase-error.js";
 import { curatedPipelines } from "./pipelines.js";
 import { PluginRegistry } from "../registry/plugin-registry.js";
 
@@ -33,22 +33,22 @@ function equivalentCommandForRequest(request: PlanRequest): string {
       request.route.action === "split" && typeof request.options.pages === "string"
         ? ` --pages ${request.options.pages}`
         : "";
-    return `muxory ${request.route.resource} ${request.route.action} ${printableInput}${optionSuffix}${output ? ` -o ${output}` : ""}`.trim();
+    return `morphase ${request.route.resource} ${request.route.action} ${printableInput}${optionSuffix}${output ? ` -o ${output}` : ""}`.trim();
   }
 
   if (request.route.from === "url" || request.route.from === "youtube-url" || request.route.from === "media-url") {
-    return `muxory fetch ${printableInput} --to ${request.route.to}${output ? ` -o ${output}` : ""}`;
+    return `morphase fetch ${printableInput} --to ${request.route.to}${output ? ` -o ${output}` : ""}`;
   }
 
   if (["mp3", "wav", "mp4", "mov", "mkv"].includes(request.route.from)) {
-    return `muxory media ${printableInput} --to ${request.route.to}${output ? ` -o ${output}` : ""}`;
+    return `morphase media ${printableInput} --to ${request.route.to}${output ? ` -o ${output}` : ""}`;
   }
 
   if (request.route.to === "markdown" || request.route.to === "txt" || request.route.to === "transcript") {
-    return `muxory extract ${printableInput} --to ${request.route.to}${output ? ` -o ${output}` : ""}`;
+    return `morphase extract ${printableInput} --to ${request.route.to}${output ? ` -o ${output}` : ""}`;
   }
 
-  return `muxory convert ${printableInput} ${output}`.trim();
+  return `morphase convert ${printableInput} ${output}`.trim();
 }
 
 function qualityScore(capability: Capability): number {
@@ -113,7 +113,7 @@ function pipelineMatches(pipeline: PipelineDefinition, request: PlanRequest): bo
 export class Planner {
   constructor(
     private readonly registry: PluginRegistry,
-    private readonly config: MuxoryConfig
+    private readonly config: MorphaseConfig
   ) {}
 
   private async planPipeline(
@@ -121,7 +121,7 @@ export class Planner {
     pipeline: PipelineDefinition,
     rankedCandidates: PlannerCandidate[]
   ): Promise<PlannedExecution | null> {
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "muxory-"));
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "morphase-"));
     const steps: PlannedStep[] = [];
     let currentInput = request.input;
 
@@ -192,7 +192,7 @@ export class Planner {
 
     return {
       selectedPluginId: `pipeline:${pipeline.id}`,
-      explanation: `Muxory selected curated pipeline ${pipeline.id} because no direct backend could produce a valid plan for ${routeKey(request.route)} on this machine.`,
+      explanation: `morphase selected curated pipeline ${pipeline.id} because no direct backend could produce a valid plan for ${routeKey(request.route)} on this machine.`,
       warnings: [],
       installNeeded: false,
       fallbacks: rankedCandidates.map((candidate) => candidate.pluginId),
@@ -221,8 +221,8 @@ export class Planner {
 
       throw createError({
         code: "UNSUPPORTED_ROUTE",
-        message: `Muxory does not currently support ${routeKey(request.route)}.`,
-        suggestedFixes: ["Run `muxory doctor` to inspect available backends."]
+        message: `morphase does not currently support ${routeKey(request.route)}.`,
+        suggestedFixes: ["Run `morphase doctor` to inspect available backends."]
       });
     }
 
@@ -267,7 +267,7 @@ export class Planner {
     if (ranked.length === 0) {
       throw createError({
         code: "NETWORK_REQUIRED",
-        message: `Muxory found only network-backed candidates for ${routeKey(request.route)}, but offline mode is enabled.`,
+        message: `morphase found only network-backed candidates for ${routeKey(request.route)}, but offline mode is enabled.`,
         suggestedFixes: ["Disable offline mode or install a local backend for this route."]
       });
     }

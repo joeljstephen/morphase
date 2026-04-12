@@ -4,7 +4,7 @@
 
 > **One shared engine, many interfaces, pluggable backends.**
 
-CLI and server are thin clients. The engine owns routing, planning, execution, doctoring, and job tracking. Plugins isolate backend-specific behavior. Shared types and schemas keep the public surface consistent. The server and CLI both call the same `MuxoryEngine` entry point.
+CLI and server are thin clients. The engine owns routing, planning, execution, doctoring, and job tracking. Plugins isolate backend-specific behavior. Shared types and schemas keep the public surface consistent. The server and CLI both call the same `MorphaseEngine` entry point.
 
 ---
 
@@ -18,7 +18,7 @@ CLI and server are thin clients. The engine owns routing, planning, execution, d
                            |
                            v
 +-----------+    +-------------------+    +------------------+
-|   CLI     | -> |   Muxory Engine   | <- |  Local API       |
+|   CLI     | -> |   Morphase Engine  | <- |  Local API       |
 | (client)  |    |                   |    |  Server          |
 +-----------+    | - registry        |    +------------------+
                  | - planner         |
@@ -47,10 +47,10 @@ CLI and server are thin clients. The engine owns routing, planning, execution, d
 
 ## Monorepo Structure
 
-Muxory uses a **pnpm workspace** monorepo. The root `pnpm-workspace.yaml` declares `apps/*` and `packages/*` as workspace members.
+morphase uses a **pnpm workspace** monorepo. The root `pnpm-workspace.yaml` declares `apps/*` and `packages/*` as workspace members.
 
 ```
-muxory/
+morphase/
   apps/
     cli/                    # Interactive and direct CLI (commander + prompts)
     server/                 # Local API server (Fastify)
@@ -69,15 +69,15 @@ muxory/
 
     engine/                 # Core routing, planning, execution engine
       src/
-        index.ts            # MuxoryEngine class (main entry point)
+        index.ts            # MorphaseEngine class (main entry point)
         registry/           # Plugin registry
         planner/            # Route planning + scoring + pipelines
         executor/           # Process execution + output validation
         doctor/             # Backend health inspection
         jobs/               # In-memory job tracking
-        config/             # Config file loading (~/.muxory/config.json)
+        config/             # Config file loading (~/.morphase/config.json)
         platform/           # OS detection + package manager detection
-        errors/             # MuxoryRuntimeError
+        errors/             # MorphaseRuntimeError
         logging/            # Structured logger
 
     plugin-sdk/             # Plugin authoring helpers
@@ -110,28 +110,28 @@ muxory/
 ## Package Dependency Graph
 
 ```
-@muxory/shared          (leaf — zero workspace deps)
+@morphase/shared          (leaf — zero workspace deps)
     ^
     |
-@muxory/plugin-sdk      (depends on @muxory/shared)
+@morphase/plugin-sdk      (depends on @morphase/shared)
     ^
     |
-@muxory/plugins         (depends on @muxory/shared + @muxory/plugin-sdk)
+@morphase/plugins         (depends on @morphase/shared + @morphase/plugin-sdk)
     ^
     |
-@muxory/engine          (depends on @muxory/shared + @muxory/plugin-sdk + @muxory/plugins)
+@morphase/engine          (depends on @morphase/shared + @morphase/plugin-sdk + @morphase/plugins)
     ^
     |
-  +- @muxory/server     (depends on @muxory/engine + @muxory/shared)
-  +- muxory-cli         (depends on @muxory/engine + @muxory/server + @muxory/shared)
+  +- @morphase/server     (depends on @morphase/engine + @morphase/shared)
+  +- morphase-cli         (depends on @morphase/engine + @morphase/server + @morphase/shared)
 ```
 
 Key external dependencies:
-- **zod** — config and job request validation (`@muxory/shared`)
-- **execa** — process spawning (`@muxory/engine`, `muxory-cli`)
-- **commander** — CLI argument parsing (`muxory-cli`)
-- **prompts** — interactive wizard (`muxory-cli`)
-- **fastify** — HTTP server (`@muxory/server`)
+- **zod** — config and job request validation (`@morphase/shared`)
+- **execa** — process spawning (`@morphase/engine`, `morphase-cli`)
+- **commander** — CLI argument parsing (`morphase-cli`)
+- **prompts** — interactive wizard (`morphase-cli`)
+- **fastify** — HTTP server (`@morphase/server`)
 
 ---
 
@@ -139,7 +139,7 @@ Key external dependencies:
 
 ### Resource Kinds
 
-Muxory reasons about normalized resource kinds, not just file extensions. Defined as a const array in `@muxory/shared`:
+morphase reasons about normalized resource kinds, not just file extensions. Defined as a const array in `@morphase/shared`:
 
 `markdown`, `html`, `docx`, `pptx`, `xlsx`, `odt`, `ods`, `odp`, `pdf`, `txt`, `jpg`, `png`, `webp`, `heic`, `mp3`, `wav`, `mp4`, `mov`, `mkv`, `url`, `youtube-url`, `media-url`, `subtitle`, `transcript`
 
@@ -175,19 +175,19 @@ Routes are identified by a string key: `"pptx->pdf"` for conversions, `"pdf:merg
 | `PlannedExecution` | Full plan result: selected plugin, explanation, warnings, steps, fallbacks |
 | `JobResult` | Final result: jobId, status, outputPaths, logs, warnings, error, equivalentCommand |
 | `JobRecord` | Persistent job state: request, route, status, timestamps, logs, result |
-| `MuxoryError` | Structured error: code, message, likelyCause, suggestedFixes, rawStdout/Stderr |
+| `MorphaseError` | Structured error: code, message, likelyCause, suggestedFixes, rawStdout/Stderr |
 
 ---
 
 ## Engine Internals
 
-The engine is the heart of Muxory. `MuxoryEngine` is the single entry point, constructed via the async factory `MuxoryEngine.create()`.
+The engine is the heart of Morphase. `MorphaseEngine` is the single entry point, constructed via the async factory `MorphaseEngine.create()`.
 
 ### Initialization
 
 ```
-MuxoryEngine.create()
-  ├── loadMuxoryConfig()          // Reads ~/.muxory/config.json (falls back to defaults)
+MorphaseEngine.create()
+  ├── loadMorphaseConfig()          // Reads ~/.morphase/config.json (falls back to defaults)
   ├── new PluginRegistry(plugins) // Registers all builtin plugins
   ├── new Planner(registry, config)
   ├── new Logger(config.debug)
@@ -260,12 +260,12 @@ Each pipeline step runs in a shared temp directory. Intermediate outputs are pas
 
 **Equivalent Command Generation**
 
-The planner generates a human-readable CLI command (e.g. `muxory convert deck.pptx deck.pdf`) based on the route type:
-- Conversions → `muxory convert`
-- Media → `muxory media`
-- URL/YouTube fetches → `muxory fetch`
-- Extract to text/markdown/transcript → `muxory extract`
-- Operations → `muxory <resource> <action>`
+The planner generates a human-readable CLI command (e.g. `morphase convert deck.pptx deck.pdf`) based on the route type:
+- Conversions → `morphase convert`
+- Media → `morphase media`
+- URL/YouTube fetches → `morphase fetch`
+- Extract to text/markdown/transcript → `morphase extract`
+- Operations → `morphase <resource> <action>`
 
 ### Executor (`packages/engine/src/executor/executor.ts`)
 
@@ -306,7 +306,7 @@ For each backend, a `BackendDoctorReport` includes:
 - Install and update hints for the current platform
 - Common problems list
 
-The CLI exposes this via `muxory doctor`, `muxory backend list`, `muxory backend verify <id>`, and `muxory backend install/update <id>`.
+The CLI exposes this via `morphase doctor`, `morphase backend list`, `morphase backend verify <id>`, and `morphase backend install/update <id>`.
 
 ### Job Manager (`packages/engine/src/jobs/job-manager.ts`)
 
@@ -332,7 +332,7 @@ All OS-specific behavior is isolated here:
 
 ### Configuration (`packages/engine/src/config/load-config.ts`)
 
-Config is loaded from `~/.muxory/config.json`, validated with Zod against `muxoryConfigSchema`:
+Config is loaded from `~/.morphase/config.json`, validated with Zod against `morphaseConfigSchema`:
 
 ```ts
 {
@@ -350,9 +350,9 @@ If the file is missing or invalid, defaults are used.
 
 Structured log prefixes: `[planner]`, `[doctor]`, `[executor]`, `[plugin:<id>]`, `[debug]`. Debug messages are gated behind the `debug` config flag.
 
-### Errors (`packages/engine/src/errors/muxory-error.ts`)
+### Errors (`packages/engine/src/errors/morphase-error.ts`)
 
-All engine errors are thrown as `MuxoryRuntimeError`, which wraps a structured `MuxoryError` with:
+All engine errors are thrown as `morphaseRuntimeError`, which wraps a structured `morphaseError` with:
 - `code` — Machine-readable error code (e.g. `BACKEND_NOT_INSTALLED`, `UNSUPPORTED_ROUTE`)
 - `message` — Human-readable description
 - `likelyCause` — What probably went wrong
@@ -366,10 +366,10 @@ All engine errors are thrown as `MuxoryRuntimeError`, which wraps a structured `
 
 ### Plugin Contract
 
-Every plugin implements the `MuxoryPlugin` interface:
+Every plugin implements the `morphasePlugin` interface:
 
 ```ts
-interface MuxoryPlugin {
+interface morphasePlugin {
   id: string;                   // Unique identifier (e.g. "ffmpeg")
   name: string;                 // Display name (e.g. "FFmpeg")
   priority: number;             // Higher = preferred (default ordering)
@@ -387,7 +387,7 @@ interface MuxoryPlugin {
 }
 ```
 
-### Plugin SDK (`@muxory/plugin-sdk`)
+### Plugin SDK (`@morphase/plugin-sdk`)
 
 Provides three helpers to reduce boilerplate:
 
@@ -408,7 +408,7 @@ Additional utilities used by most plugins:
 
 ### Plugin Registration
 
-All 15 plugins are imported and registered in `packages/plugins/src/index.ts` as the `builtinPlugins` array. The engine receives these via `MuxoryEngine.create()`.
+All 15 plugins are imported and registered in `packages/plugins/src/index.ts` as the `builtinPlugins` array. The engine receives these via `morphaseEngine.create()`.
 
 ### Builtin Plugin Matrix
 
@@ -465,7 +465,7 @@ User Input
 [CLI / Server] builds JobRequest
     │
     v
-MuxoryEngine.submit(request)
+morphaseEngine.submit(request)
     │
     ├── normalizeRequest()
     │     ├── Resolve input paths (relative → absolute)
@@ -519,7 +519,7 @@ The CLI is a **thin client** built with **Commander.js** and **prompts**.
 ### Entry Point (`src/index.ts`)
 
 On startup:
-1. Creates `MuxoryEngine` instance
+1. Creates `morphaseEngine` instance
 2. If `process.argv.length <= 2` (no subcommand), launches the interactive wizard
 3. Otherwise, parses CLI arguments via Commander
 
@@ -527,24 +527,24 @@ On startup:
 
 | Command | Description |
 |---------|-------------|
-| `muxory` | Launch interactive wizard |
-| `muxory convert <input> <output>` | Convert a file |
-| `muxory extract <input> --to <format>` | Extract content |
-| `muxory fetch <url> --to <format>` | Fetch URL content |
-| `muxory media <input> --to <format>` | Convert audio/video |
-| `muxory image compress <input>` | Compress image |
-| `muxory video compress <input>` | Compress video |
-| `muxory pdf merge <inputs...> -o <out>` | Merge PDFs |
-| `muxory pdf split <input> --pages <range> -o <out>` | Split PDF |
-| `muxory pdf optimize <input> -o <out>` | Optimize PDF |
-| `muxory doctor` | Inspect all backends |
-| `muxory backend list` | List backend install status |
-| `muxory backend status` | Detailed backend status |
-| `muxory backend verify <id>` | Verify specific backend |
-| `muxory backend install <id> [--run]` | Show/run install command |
-| `muxory backend update <id> [--run]` | Show/run update command |
-| `muxory explain <input> --to <format>` | Show plan without running |
-| `muxory serve [--host] [--port]` | Start API server |
+| `morphase` | Launch interactive wizard |
+| `morphase convert <input> <output>` | Convert a file |
+| `morphase extract <input> --to <format>` | Extract content |
+| `morphase fetch <url> --to <format>` | Fetch URL content |
+| `morphase media <input> --to <format>` | Convert audio/video |
+| `morphase image compress <input>` | Compress image |
+| `morphase video compress <input>` | Compress video |
+| `morphase pdf merge <inputs...> -o <out>` | Merge PDFs |
+| `morphase pdf split <input> --pages <range> -o <out>` | Split PDF |
+| `morphase pdf optimize <input> -o <out>` | Optimize PDF |
+| `morphase doctor` | Inspect all backends |
+| `morphase backend list` | List backend install status |
+| `morphase backend status` | Detailed backend status |
+| `morphase backend verify <id>` | Verify specific backend |
+| `morphase backend install <id> [--run]` | Show/run install command |
+| `morphase backend update <id> [--run]` | Show/run update command |
+| `morphase explain <input> --to <format>` | Show plan without running |
+| `morphase serve [--host] [--port]` | Start API server |
 
 ### Common Options
 
@@ -552,7 +552,7 @@ All conversion commands support: `--from`, `--backend`, `--offline`, `--debug`, 
 
 ### Interactive Wizard (`src/wizard.ts`)
 
-When the user runs bare `muxory`, a guided flow walks through:
+When the user runs bare `morphase`, a guided flow walks through:
 1. **Category selection** — Documents, PDF, Images, Audio & Video, Download, Web pages
 2. **Route/operation selection** — Specific conversion or operation within category
 3. **Input collection** — File path or URL
@@ -574,7 +574,7 @@ Three formatters produce human-readable terminal output with ANSI colors:
 
 ## Server Architecture (`apps/server`)
 
-A **Fastify** HTTP server that reuses the same `MuxoryEngine`.
+A **Fastify** HTTP server that reuses the same `morphaseEngine`.
 
 ### Endpoints
 
@@ -597,7 +597,7 @@ A **Fastify** HTTP server that reuses the same `MuxoryEngine`.
 
 ### Startup
 
-The CLI's `muxory serve` command calls `createMuxoryServer(engine)`, which either accepts an existing engine or creates one. The server is designed to be imported as a library for future web UI integration.
+The CLI's `morphase serve` command calls `createmorphaseServer(engine)`, which either accepts an existing engine or creates one. The server is designed to be imported as a library for future web UI integration.
 
 ---
 
@@ -629,7 +629,7 @@ pnpm dev             # Run CLI in dev mode (tsx)
 Route preferences come from three sources (in priority order):
 
 1. **`--backend` CLI flag** — User explicitly selects a backend
-2. **Config `preferredBackends`** — User's `~/.muxory/config.json` overrides
+2. **Config `preferredBackends`** — User's `~/.morphase/config.json` overrides
 3. **`ROUTE_PREFERENCES` constant** — Built-in default ordering in `packages/shared/src/constants/routes.ts`
 
 This allows users to override defaults per route without modifying code.
@@ -638,7 +638,7 @@ This allows users to override defaults per route without modifying code.
 
 ## Error Handling Philosophy
 
-Muxory owns **diagnosis**, not repair. When something breaks:
+morphase owns **diagnosis**, not repair. When something breaks:
 
 1. **Say what failed** — Clear error code and message
 2. **Say why** — `likelyCause` explains the probable reason

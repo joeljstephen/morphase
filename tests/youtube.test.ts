@@ -4,7 +4,7 @@ import { Doctor } from "../packages/engine/src/doctor/doctor.js";
 import { enrichError } from "../packages/engine/src/executor/executor.js";
 import { ROUTE_PREFERENCES } from "../packages/shared/src/constants/routes.js";
 import { isMediaUrl, isYoutubeUrl } from "../packages/shared/src/utils/resources.js";
-import type { MuxoryError, MuxoryPlugin } from "../packages/shared/src/index.js";
+import type { MorphaseError, MorphasePlugin } from "../packages/shared/src/index.js";
 
 describe("YouTube URL detection", () => {
   it("detects standard youtube.com watch URLs", () => {
@@ -115,7 +115,7 @@ describe("Route preferences for YouTube routes", () => {
 });
 
 describe("Error enrichment for yt-dlp and summarize", () => {
-  function makeError(partial: Partial<MuxoryError> = {}): MuxoryError {
+  function makeError(partial: Partial<MorphaseError> = {}): MorphaseError {
     return {
       code: partial.code ?? "BACKEND_EXECUTION_FAILED",
       message: partial.message ?? "failed",
@@ -170,7 +170,7 @@ describe("Error enrichment for yt-dlp and summarize", () => {
 });
 
 describe("Doctor backend reports", () => {
-  function createStubPlugin(id: string, installed: boolean): MuxoryPlugin {
+  function createStubPlugin(id: string, installed: boolean): MorphasePlugin {
     return {
       id,
       name: id,

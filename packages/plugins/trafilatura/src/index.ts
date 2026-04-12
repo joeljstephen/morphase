@@ -1,5 +1,5 @@
-import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
-import type { MuxoryPlugin, PlanRequest, Platform } from "@muxory/shared";
+import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
 
 import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
 
@@ -10,7 +10,7 @@ const installHints = packageHints(
   ["Trafilatura is commonly installed via pip when OS packages are unavailable."]
 );
 
-export const trafilaturaPlugin: MuxoryPlugin = definePlugin({
+export const trafilaturaPlugin: MorphasePlugin = definePlugin({
   id: "trafilatura",
   name: "Trafilatura",
   priority: 90,

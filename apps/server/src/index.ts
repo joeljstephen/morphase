@@ -1,15 +1,15 @@
 import Fastify from "fastify";
 
-import { MuxoryEngine } from "@muxory/engine";
-import type { JobRequest } from "@muxory/shared";
+import { MorphaseEngine } from "@morphase/engine";
+import type { JobRequest } from "@morphase/shared";
 
-export async function createMuxoryServer(engine?: MuxoryEngine) {
+export async function createMorphaseServer(engine?: MorphaseEngine) {
   const app = Fastify({ logger: false });
-  const runtime = engine ?? (await MuxoryEngine.create());
+  const runtime = engine ?? (await MorphaseEngine.create());
 
   app.get("/health", async () => ({
     ok: true,
-    service: "muxory",
+    service: "morphase",
     time: new Date().toISOString()
   }));
 

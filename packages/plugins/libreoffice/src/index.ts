@@ -1,5 +1,5 @@
-import { definePlugin, installHintByPlatform } from "@muxory/plugin-sdk";
-import type { MuxoryPlugin, PlanRequest, Platform, ResourceKind } from "@muxory/shared";
+import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
 import { detectBinary, libreOfficeConvert, libreOfficeGeneratedPdf, packageHints, verifyBinary } from "../../src/helpers.js";
 
@@ -9,7 +9,7 @@ const installHints = packageHints(
   "sudo apt-get install libreoffice"
 );
 
-export const libreOfficePlugin: MuxoryPlugin = definePlugin({
+export const libreOfficePlugin: MorphasePlugin = definePlugin({
   id: "libreoffice",
   name: "LibreOffice",
   priority: 100,

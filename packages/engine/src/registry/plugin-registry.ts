@@ -1,24 +1,24 @@
-import type { Capability, MuxoryPlugin, Platform, Route } from "@muxory/shared";
+import type { Capability, MorphasePlugin, Platform, Route } from "@morphase/shared";
 
 export class PluginRegistry {
-  constructor(private readonly plugins: MuxoryPlugin[]) {}
+  constructor(private readonly plugins: MorphasePlugin[]) {}
 
-  list(): MuxoryPlugin[] {
+  list(): MorphasePlugin[] {
     return [...this.plugins].sort((left, right) => right.priority - left.priority);
   }
 
-  get(pluginId: string): MuxoryPlugin | undefined {
+  get(pluginId: string): MorphasePlugin | undefined {
     return this.plugins.find((plugin) => plugin.id === pluginId);
   }
 
-  capabilities(): Array<{ plugin: MuxoryPlugin; capability: Capability }> {
+  capabilities(): Array<{ plugin: MorphasePlugin; capability: Capability }> {
     return this.plugins.flatMap((plugin) =>
       plugin.capabilities().map((capability) => ({ plugin, capability }))
     );
   }
 
   findCandidates(route: Route, platform: Platform): Array<{
-    plugin: MuxoryPlugin;
+    plugin: MorphasePlugin;
     capability: Capability;
   }> {
     return this.capabilities().filter(({ capability }) => {
