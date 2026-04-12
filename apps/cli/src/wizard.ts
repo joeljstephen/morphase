@@ -9,50 +9,41 @@ const BACK = "__back__" as const;
 type WizardStepResult = JobRequest | null | typeof BACK;
 
 const categories = [
-  { title: "Documents", description: "Convert between Markdown, HTML, DOCX, PDF, PPTX, XLSX", value: "documents" },
-  { title: "PDF", description: "Merge, split, and optimize PDFs", value: "pdf" },
-  { title: "Images", description: "Convert and compress JPG, PNG, WEBP", value: "images" },
-  { title: "Audio & Video", description: "Convert between MP4, MP3, WAV, MOV, MKV", value: "media" },
-  { title: "Download", description: "Save video & audio from any URL", value: "download" },
-  { title: "Web pages", description: "Extract text from web pages", value: "web" }
+  { title: "Documents", description: "Convert markdown, HTML, Word, slides, and spreadsheets", value: "documents" },
+  { title: "PDFs", description: "Merge, split, optimize, and convert PDFs", value: "pdf" },
+  { title: "Images", description: "Convert and compress JPG, PNG, and WEBP", value: "images" },
+  { title: "Audio & Video", description: "Convert audio/video formats and compress video", value: "media" },
+  { title: "Web & URLs", description: "Save media or extract content from supported URLs", value: "web-url" }
 ] as const;
 
 const documentRoutes = [
-  { title: "Markdown to PDF", from: "markdown", to: "pdf" },
-  { title: "Markdown to DOCX", from: "markdown", to: "docx" },
-  { title: "HTML to PDF", from: "html", to: "pdf" },
-  { title: "HTML to Markdown", from: "html", to: "markdown" },
-  { title: "DOCX to PDF", from: "docx", to: "pdf" },
-  { title: "PDF to Word (DOCX)", from: "pdf", to: "docx" },
-  { title: "PPTX to PDF", from: "pptx", to: "pdf" },
-  { title: "XLSX to PDF", from: "xlsx", to: "pdf" }
+  { title: "Markdown → PDF", from: "markdown", to: "pdf" },
+  { title: "Markdown → DOCX", from: "markdown", to: "docx" },
+  { title: "HTML → PDF", from: "html", to: "pdf" },
+  { title: "HTML → Markdown", from: "html", to: "markdown" },
+  { title: "DOCX → PDF", from: "docx", to: "pdf" },
+  { title: "PDF → DOCX", from: "pdf", to: "docx" },
+  { title: "PPTX → PDF", from: "pptx", to: "pdf" },
+  { title: "XLSX → PDF", from: "xlsx", to: "pdf" }
 ] as const;
 
 const imageRoutes = [
-  { title: "JPG to PNG", from: "jpg", to: "png" },
-  { title: "PNG to JPG", from: "png", to: "jpg" },
-  { title: "WEBP to PNG", from: "webp", to: "png" },
-  { title: "WEBP to JPG", from: "webp", to: "jpg" },
+  { title: "JPG → PNG", from: "jpg", to: "png" },
+  { title: "PNG → JPG", from: "png", to: "jpg" },
+  { title: "WEBP → PNG", from: "webp", to: "png" },
+  { title: "WEBP → JPG", from: "webp", to: "jpg" },
   { title: "Compress JPEG", from: "jpg", to: undefined, operation: "compress" },
   { title: "Compress PNG", from: "png", to: undefined, operation: "compress" }
 ] as const;
 
 const mediaRoutes = [
-  { title: "MP4 to MP3", from: "mp4", to: "mp3" },
-  { title: "MOV to MP4", from: "mov", to: "mp4" },
-  { title: "MKV to MP4", from: "mkv", to: "mp4" },
-  { title: "WAV to MP3", from: "wav", to: "mp3" },
-  { title: "MP3 to WAV", from: "mp3", to: "wav" },
+  { title: "MP4 → MP3", from: "mp4", to: "mp3" },
+  { title: "MOV → MP4", from: "mov", to: "mp4" },
+  { title: "MKV → MP4", from: "mkv", to: "mp4" },
+  { title: "WAV → MP3", from: "wav", to: "mp3" },
+  { title: "MP3 → WAV", from: "mp3", to: "wav" },
   { title: "Compress video", from: undefined, to: undefined, operation: "compress" }
 ] as const;
-
-const downloadOperations = [
-  { title: "Save as MP4", to: "mp4" as ResourceKind },
-  { title: "Save as MP3", to: "mp3" as ResourceKind },
-  { title: "Extract transcript", to: "transcript" as ResourceKind }
-] as const;
-
-const supportedPlatformsHint = "  Supported: YouTube, Instagram, TikTok, X, Facebook, Reddit, Vimeo, SoundCloud, and 1800+ more";
 
 function backChoice<T>() {
   return { title: "Back", value: BACK as T };
@@ -72,12 +63,12 @@ async function handlePdfCategory(): Promise<WizardStepResult> {
   const operationAnswer = await prompts({
     type: "select",
     name: "operation",
-    message: "PDF operation:",
+    message: "Choose a PDF task:",
     choices: [
       backChoice(),
       { title: "Merge PDFs", value: "merge" },
-      { title: "Split / extract pages", value: "split" },
-      { title: "Optimize / compress", value: "optimize" }
+      { title: "Split or extract pages", value: "split" },
+      { title: "Optimize or compress PDF", value: "optimize" }
     ]
   });
 
@@ -143,98 +134,131 @@ async function handlePdfCategory(): Promise<WizardStepResult> {
   };
 }
 
-async function handleDownloadCategory(): Promise<WizardStepResult> {
+async function handleWebUrlCategory(): Promise<WizardStepResult> {
   const opAnswer = await prompts({
     type: "select",
-    name: "opIndex",
-    message: "What do you want to save?",
+    name: "operation",
+    message: "What do you want to do with the URL?",
     choices: [
       backChoice(),
-      ...downloadOperations.map((op, index) => ({ title: op.title, value: index }))
+      { title: "Save video from URL as MP4", value: "save-video-mp4" },
+      { title: "Save audio from URL as MP3", value: "save-audio-mp3" },
+      { title: "Extract transcript from video URL", value: "extract-transcript" },
+      { title: "Extract web page as Markdown", value: "extract-markdown" },
+      { title: "Extract web page as plain text", value: "extract-text" }
     ]
   });
 
-  if (opAnswer.opIndex === BACK || opAnswer.opIndex === undefined) {
+  if (opAnswer.operation === BACK || opAnswer.operation === undefined) {
     return BACK;
   }
 
-  const selected = downloadOperations[opAnswer.opIndex];
+  const operation = opAnswer.operation as string;
 
-  console.log("");
-  console.log(`  ${"\x1b[2m"}${supportedPlatformsHint}${"\x1b[0m"}`);
-  console.log("");
+  if (
+    operation === "save-video-mp4" ||
+    operation === "save-audio-mp3" ||
+    operation === "extract-transcript"
+  ) {
+    let hintMessage: string;
+    let toFormat: ResourceKind;
 
-  const urlAnswer = await prompts({
-    type: "text",
-    name: "input",
-    message: "Paste a URL:"
-  });
+    switch (operation) {
+      case "save-video-mp4":
+        hintMessage = "Paste a video URL from YouTube, Instagram, TikTok, or other supported sites";
+        toFormat = "mp4";
+        break;
+      case "save-audio-mp3":
+        hintMessage = "Paste a video or audio URL from YouTube, SoundCloud, or other supported sites";
+        toFormat = "mp3";
+        break;
+      default:
+        hintMessage = "Paste a video URL from YouTube or another supported site";
+        toFormat = "transcript";
+        break;
+    }
 
-  if (!urlAnswer.input) {
-    return null;
-  }
+    console.log("");
+    console.log(`  ${"\x1b[2m"}${hintMessage}${"\x1b[0m"}`);
+    console.log("");
 
-  const isYT = isYoutubeUrl(urlAnswer.input);
-  const isMedia = isMediaUrl(urlAnswer.input);
-  if (!isYT && !isMedia) {
-    return null;
-  }
-
-  const from: ResourceKind = isYT ? "youtube-url" : "media-url";
-
-  let format: string | undefined;
-  if (selected.to === "transcript") {
-    const formatAnswer = await prompts({
-      type: "select",
-      name: "format",
-      message: "Transcript format:",
-      choices: [
-        { title: "Plain text", value: "text" },
-        { title: "Markdown", value: "markdown" }
-      ]
+    const urlAnswer = await prompts({
+      type: "text",
+      name: "input",
+      message: "URL:"
     });
-    format = formatAnswer.format;
+
+    if (!urlAnswer.input) {
+      return null;
+    }
+
+    const isYT = isYoutubeUrl(urlAnswer.input);
+    const isMedia = isMediaUrl(urlAnswer.input);
+    if (!isYT && !isMedia) {
+      return null;
+    }
+
+    const from: ResourceKind = isYT ? "youtube-url" : "media-url";
+
+    let format: string | undefined;
+    if (operation === "extract-transcript") {
+      const formatAnswer = await prompts({
+        type: "select",
+        name: "format",
+        message: "Choose transcript format:",
+        choices: [
+          backChoice(),
+          { title: "Plain text", value: "text" },
+          { title: "Markdown", value: "markdown" }
+        ]
+      });
+
+      if (formatAnswer.format === BACK || formatAnswer.format === undefined) {
+        return BACK;
+      }
+
+      format = formatAnswer.format;
+    }
+
+    const inferredOutput = path.resolve(deriveOutputPath(urlAnswer.input, toFormat));
+    const suggestedOutput =
+      format === "markdown" && toFormat === "transcript"
+        ? inferredOutput.replace(/\.txt$/, ".md")
+        : inferredOutput;
+    const output = await askOutputPath(suggestedOutput);
+
+    if (!output) {
+      return null;
+    }
+
+    return {
+      input: urlAnswer.input,
+      from,
+      to: toFormat,
+      output,
+      options: format && format !== "text" ? { format } : {}
+    };
   }
 
-  const inferredOutput = path.resolve(deriveOutputPath(urlAnswer.input, selected.to));
-  const suggestedOutput = format === "markdown" && selected.to === "transcript"
-    ? inferredOutput.replace(/\.txt$/, ".md")
-    : inferredOutput;
-  const output = await askOutputPath(suggestedOutput);
+  let toFormat: ResourceKind;
+  let hintMessage: string;
 
-  if (!output) {
-    return null;
+  if (operation === "extract-markdown") {
+    toFormat = "markdown";
+    hintMessage = "Paste a web page URL to extract as Markdown";
+  } else {
+    toFormat = "txt";
+    hintMessage = "Paste a web page URL to extract as plain text";
   }
 
-  return {
-    input: urlAnswer.input,
-    from,
-    to: selected.to,
-    output,
-    options: format && format !== "text" ? { format } : {}
-  };
-}
-
-async function handleWebCategory(): Promise<WizardStepResult> {
-  const fetchAnswers = await prompts({
-    type: "select",
-    name: "to",
-    message: "Output format:",
-    choices: [
-      backChoice(),
-      { title: "Markdown", value: "markdown" },
-      { title: "Plain text", value: "txt" }
-    ]
-  });
-
-  if (fetchAnswers.to === BACK || fetchAnswers.to === undefined) {
-    return BACK;
-  }
+  console.log("");
+  console.log(`  ${"\x1b[2m"}${hintMessage}${"\x1b[0m"}`);
+  console.log("");
 
   const urlAnswer = await prompts({
     type: "text",
     name: "input",
-    message: "URL to extract:"
+    message: "URL:"
   });
 
   if (!urlAnswer.input) {
@@ -245,7 +269,7 @@ async function handleWebCategory(): Promise<WizardStepResult> {
     return null;
   }
 
-  const suggestedOutput = deriveOutputPath(urlAnswer.input, fetchAnswers.to as ResourceKind);
+  const suggestedOutput = deriveOutputPath(urlAnswer.input, toFormat);
   const output = await askOutputPath(suggestedOutput);
 
   if (!output) {
@@ -255,7 +279,7 @@ async function handleWebCategory(): Promise<WizardStepResult> {
   return {
     input: urlAnswer.input,
     from: "url",
-    to: fetchAnswers.to,
+    to: toFormat,
     output
   };
 }
@@ -271,9 +295,9 @@ async function handleRouteCategory(
         : mediaRoutes;
 
   const messageMap: Record<string, string> = {
-    documents: "Convert what?",
-    images: "Image operation:",
-    media: "Media operation:"
+    documents: "Choose a document conversion:",
+    images: "Choose an image task:",
+    media: "Choose a media task:"
   };
 
   const routeAnswer = await prompts({
@@ -391,11 +415,8 @@ export async function runWizard(): Promise<JobRequest | null> {
       case "pdf":
         result = await handlePdfCategory();
         break;
-      case "download":
-        result = await handleDownloadCategory();
-        break;
-      case "web":
-        result = await handleWebCategory();
+      case "web-url":
+        result = await handleWebUrlCategory();
         break;
       default:
         result = await handleRouteCategory(category as "documents" | "images" | "media");

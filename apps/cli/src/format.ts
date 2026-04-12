@@ -95,10 +95,6 @@ export function formatJobResult(result: JobResult): string {
       lines.push(labeled("Via", result.backendId));
     }
 
-    if (result.equivalentCommand) {
-      lines.push(labeled("Again", result.equivalentCommand));
-    }
-
     if (result.warnings?.length) {
       lines.push("");
       for (const w of result.warnings) {
