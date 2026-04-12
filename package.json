@@ -11,7 +11,7 @@
     "dev": "pnpm --filter morphase dev"
   },
   "devDependencies": {
-    "@types/node": "^24.5.2",
+    "@types/node": "^25.6.0",
     "@types/prompts": "^2.4.9",
     "tsup": "^8.5.0",
     "tsx": "^4.20.5",
