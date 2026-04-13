@@ -111,6 +111,10 @@ export function formatJobResult(result: JobResult): string {
     `  ${red}✗${reset}  ${bold}Failed${reset}`
   ];
 
+  if (result.backendId) {
+    lines.push(labeled("Via", result.backendId));
+  }
+
   if (result.error) {
     lines.push(labeled("Error", result.error.message));
     if (result.error.likelyCause) {
@@ -121,10 +125,6 @@ export function formatJobResult(result: JobResult): string {
         lines.push(labeled("Try", fix));
       }
     }
-  }
-
-  if (result.backendId) {
-    lines.push(labeled("Via", result.backendId));
   }
 
   lines.push("");

@@ -297,6 +297,25 @@ async function handleWebUrlCategory(): Promise<WizardStepResult> {
       format === "markdown" && toFormat === "transcript"
         ? inferredOutput.replace(/\.txt$/, ".md")
         : inferredOutput;
+
+    let quality: string | undefined;
+    if (toFormat === "mp4" || toFormat === "mp3") {
+      const qualityAnswer = await prompts({
+        type: "select",
+        name: "quality",
+        message: "Choose quality:",
+        choices: [
+          { title: "Best", description: toFormat === "mp4" ? "Highest resolution available" : "Highest audio quality", value: "best" },
+          { title: "High", description: toFormat === "mp4" ? "Up to 1080p" : "High audio quality", value: "high" },
+          { title: "Medium", description: toFormat === "mp4" ? "Up to 720p" : "Medium audio quality", value: "medium" },
+          { title: "Low", description: toFormat === "mp4" ? "Up to 480p" : "Low audio quality, smallest file", value: "low" }
+        ],
+        initial: 0
+      });
+
+      quality = qualityAnswer.quality;
+    }
+
     const output = await askOutputPath(suggestedOutput);
 
     if (!output) {
@@ -308,7 +327,10 @@ async function handleWebUrlCategory(): Promise<WizardStepResult> {
       from,
       to: toFormat,
       output,
-      options: format && format !== "text" ? { format } : {}
+      options: {
+        ...(format && format !== "text" ? { format } : {}),
+        ...(quality ? { quality } : {})
+      }
     };
   }
 

@@ -293,9 +293,14 @@ async function main() {
     .requiredOption("--to <format>", "Desired output format")
     .option("-o, --output <path>", "Output path")
     .option("--format <format>", "Transcript format for --to transcript: text or markdown")
+    .option("--quality <quality>", "Media quality: best, high, medium, or low")
     .action(async (url, options) => {
       try {
         const from: ResourceKind | undefined = isYoutubeUrl(url) ? "youtube-url" : isMediaUrl(url) ? "media-url" : "url";
+        const mergedOptions: Record<string, unknown> = {
+          ...(options.format ? { format: options.format } : {}),
+          ...(options.quality ? { quality: options.quality } : {})
+        };
         await handleJob(
           engine,
           buildRequest(options, {
@@ -303,7 +308,7 @@ async function main() {
             from,
             to: options.to as ResourceKind,
             output: options.output as string | undefined,
-            options: options.format ? { format: options.format } : {}
+            options: Object.keys(mergedOptions).length > 0 ? mergedOptions : {}
           }),
           { setExitCode: true }
         );

@@ -17,6 +17,34 @@ async function isFfmpegAvailable(): Promise<boolean> {
   return result.ok;
 }
 
+type VideoQuality = "best" | "high" | "medium" | "low";
+
+const videoHeightMap: Record<VideoQuality, string | null> = {
+  best: null,
+  high: "1080",
+  medium: "720",
+  low: "480"
+};
+
+const audioQualityMap: Record<VideoQuality, string> = {
+  best: "0",
+  high: "2",
+  medium: "5",
+  low: "8"
+};
+
+function videoFormatArg(quality: VideoQuality): string[] {
+  const maxHeight = videoHeightMap[quality];
+  if (!maxHeight) {
+    return [];
+  }
+  return ["-f", `bv*[height<=${maxHeight}]+ba/b[height<=${maxHeight}]/bv+ba/b`];
+}
+
+function audioQualityArg(quality: VideoQuality): string[] {
+  return ["--audio-quality", audioQualityMap[quality]];
+}
+
 export const ytdlpPlugin: MorphasePlugin = definePlugin({
   id: "ytdlp",
   name: "yt-dlp",
@@ -154,10 +182,13 @@ export const ytdlpPlugin: MorphasePlugin = definePlugin({
     const basename = path.parse(request.output).name;
     const template = path.join(directory, `${basename}.%(ext)s`);
 
+    const quality = (request.options.quality as VideoQuality) ?? "best";
+
     if (to === "mp4") {
+      const qualityArgs = videoFormatArg(quality);
       return {
         command: "yt-dlp",
-        args: ["--remux-video", "mp4", "-o", template, request.input],
+        args: [...qualityArgs, "--remux-video", "mp4", "-o", template, request.input],
         expectedOutputs: [request.output]
       };
     }
@@ -167,9 +198,10 @@ export const ytdlpPlugin: MorphasePlugin = definePlugin({
       if (!ffmpegOk) {
         return null;
       }
+      const qualityArgs = audioQualityArg(quality);
       return {
         command: "yt-dlp",
-        args: ["-x", "--audio-format", "mp3", "-o", template, request.input],
+        args: ["-x", "--audio-format", "mp3", ...qualityArgs, "-o", template, request.input],
         expectedOutputs: [request.output]
       };
     }
