@@ -32,7 +32,7 @@ const imageRoutes = [
   { title: "PNG → JPG", from: "png", to: "jpg" },
   { title: "WEBP → PNG", from: "webp", to: "png" },
   { title: "WEBP → JPG", from: "webp", to: "jpg" },
-  { title: "Images → PDF (JPG, PNG · one or many)", from: "jpg", to: "pdf", multiImage: true },
+  { title: "Images → PDF", hint: "JPG, PNG · one or many", from: "jpg", to: "pdf", multiImage: true },
   { title: "Compress JPEG", from: "jpg", to: undefined, operation: "compress" },
   { title: "Compress PNG", from: "png", to: undefined, operation: "compress" }
 ] as const;
@@ -380,7 +380,11 @@ async function handleRouteCategory(
     message: messageMap[category] ?? "Which operation?",
     choices: [
       backChoice(),
-      ...routeChoices.map((route, index) => ({ title: route.title, value: index }))
+      ...routeChoices.map((route, index) => ({
+        title: route.title,
+        description: (route as { hint?: string }).hint,
+        value: index
+      }))
     ]
   });
 
