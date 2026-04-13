@@ -34,6 +34,11 @@
 
 | Route | Backend | Quality | Offline | Notes |
 | --- | --- | --- | --- | --- |
+| `jpg -> pdf` | `img2pdf` | high | yes | Supports multiple images in one command |
+| `png -> pdf` | `img2pdf` | high | yes | Supports multiple images in one command |
+| `pdf -> png` | `poppler` | high | yes | Renders each page as a separate PNG image |
+| `pdf -> jpg` | `poppler` | high | yes | Renders each page as a separate JPEG image |
+| `pdf extract-images` | `poppler` | medium | yes | Extracts embedded images from a PDF |
 | `pdf -> markdown` | `markitdown` | medium | yes | Experimental plugin |
 | `pdf -> txt` | `markitdown` -> `pandoc` pipeline | medium | yes | Two-step pipeline |
 | `youtube-url -> transcript` | `summarize` / `ytdlp` | high/medium | no | summarize preferred, ytdlp fallback |
@@ -73,5 +78,7 @@ For `youtube-url -> mp3`:
 | jpegoptim | `brew install jpegoptim` | manual / WSL | `sudo apt-get install jpegoptim` |
 | optipng | `brew install optipng` | manual / WSL | `sudo apt-get install optipng` |
 | whisper | `pip install openai-whisper` | `py -m pip install openai-whisper` | `pip install openai-whisper` |
+| img2pdf | `pip install img2pdf` | `py -m pip install img2pdf` | `pip install img2pdf` |
+| poppler | `brew install poppler` | `winget install poppler` | `sudo apt-get install poppler-utils` |
 
 summarize requires Node 22+.

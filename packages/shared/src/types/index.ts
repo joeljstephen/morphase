@@ -99,6 +99,7 @@ export type ExecutionPlan = {
   stdoutFile?: string;
   timeoutMs?: number;
   notes?: string[];
+  collectFromDir?: string;
 };
 
 export type PlanRequest = {

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import path from "node:path";
+
 import { Command } from "commander";
 import { execa } from "execa";
 import prompts from "prompts";
@@ -45,6 +47,58 @@ function containsShellOperators(command: string): boolean {
   return /(^|[\s])(?:&&|\|\||\||;)(?=[\s]|$)/.test(command);
 }
 
+async function promptAndInstall(engine: MorphaseEngine, backendId: string): Promise<boolean> {
+  const report = await engine.doctorBackend(backendId);
+  const hints = report.installHints;
+  const command = hints[0]?.command;
+
+  if (!command) {
+    console.log(formatDoctorReport(report));
+    console.log(`\n  No automated install command available. Install manually and try again.`);
+    return false;
+  }
+
+  console.log("");
+  console.log(formatDoctorReport(report));
+  console.log("");
+
+  const answer = await prompts({
+    type: "confirm",
+    name: "ok",
+    message: `Install ${backendId} now?`,
+    initial: true
+  });
+
+  if (!answer.ok) {
+    console.log(`Skipped. You can install it later with: ${command}`);
+    return false;
+  }
+
+  if (containsShellOperators(command)) {
+    console.log(`This install command contains shell operators and cannot be run automatically.`);
+    console.log(`Please run it manually: ${command}`);
+    return false;
+  }
+
+  const tokens = tokenizeCommand(command);
+  if (tokens.length === 0) {
+    console.log(`Could not parse install command: ${command}`);
+    return false;
+  }
+
+  const [file, ...args] = tokens;
+  try {
+    await execa(file, args, { stdio: "inherit" });
+    console.log("");
+    return true;
+  } catch (installError) {
+    const reason = installError instanceof Error ? installError.message : "";
+    console.log(`\n  Installation failed${reason ? `: ${reason}` : ""}.`);
+    console.log(`  Try running it manually: ${command}`);
+    return false;
+  }
+}
+
 async function handleJob(engine: MorphaseEngine, request: JobRequest, options?: { setExitCode?: boolean }) {
   try {
     const result = await engine.submit(request);
@@ -53,6 +107,33 @@ async function handleJob(engine: MorphaseEngine, request: JobRequest, options?: 
       process.exitCode = 1;
     }
   } catch (error) {
+    if (
+      error instanceof Error &&
+      "details" in error &&
+      (error as { details: { code: string; backendId?: string } }).details.code === "BACKEND_NOT_INSTALLED"
+    ) {
+      const { backendId } = (error as { details: { code: string; backendId?: string; suggestedFixes?: string[] } }).details;
+      if (backendId) {
+        const installed = await promptAndInstall(engine, backendId);
+        if (installed) {
+          try {
+            const result = await engine.submit(request);
+            console.log(formatJobResult(result));
+            if (result.status === "failed" && options?.setExitCode) {
+              process.exitCode = 1;
+            }
+            return;
+          } catch (retryError) {
+            console.log(formatCliError(retryError));
+            if (options?.setExitCode) {
+              process.exitCode = 1;
+            }
+            return;
+          }
+        }
+      }
+    }
+
     console.log(formatCliError(error));
     if (options?.setExitCode) {
       process.exitCode = 1;
@@ -148,9 +229,31 @@ async function main() {
   program.name("morphase").description("Local-first open-source conversion router for files, media, PDFs, and web content");
 
   collectCommonOptions(
-    program.command("convert <input> <output>").description("Convert a file from one format to another")
-  ).action(async (input, output, options) => {
+    program.command("convert [args...]").description("Convert a file from one format to another")
+  ).option("-o, --output <path>", "Output path")
+    .option("--inputs <paths>", "Comma-separated input files")
+    .action(async (args, options) => {
     try {
+      let input: string | string[];
+      let output: string | undefined;
+
+      if (options.inputs) {
+        input = (options.inputs as string).split(",").map((s: string) => s.trim());
+        output = (options.output as string | undefined) ?? args[0];
+      } else if (options.output) {
+        input = args.length === 1 ? args[0] : args;
+        output = options.output as string;
+      } else if (args.length >= 2) {
+        input = args.length === 2 ? args[0] : args.slice(0, -1);
+        output = args[args.length - 1];
+      } else {
+        throw new Error("Missing output path. Usage: morphase convert <input> <output>");
+      }
+
+      if (!output) {
+        throw new Error("Missing output path. Usage: morphase convert <input> <output>");
+      }
+
       await handleJob(
         engine,
         buildRequest(options, {
@@ -340,6 +443,26 @@ async function main() {
       }
     });
 
+  collectCommonOptions(
+    pdf.command("extract-images <input>").option("-o, --output <path>", "Output directory or prefix")
+  )
+    .action(async (input, options) => {
+      try {
+        await handleJob(
+          engine,
+          buildRequest(options, {
+            input,
+            from: "pdf",
+            operation: "extract-images",
+            output: (options.output as string | undefined) ?? path.join(path.dirname(input), path.parse(input).name + "-images")
+          }),
+          { setExitCode: true }
+        );
+      } catch (error) {
+        console.log(formatCliError(error));
+      }
+    });
+
   program.command("doctor").description("Inspect backend health").action(async () => {
     try {
       const reports = await engine.doctorAll();
@@ -472,11 +595,10 @@ async function main() {
 
       const plan = await engine.explain(request);
       if (plan.installNeeded) {
-        const report = await engine.doctorBackend(plan.selectedPluginId);
-        console.log("");
-        console.log(formatDoctorReport(report));
-        console.log(`\n  Install the backend above and try again.`);
-        return;
+        const installed = await promptAndInstall(engine, plan.selectedPluginId);
+        if (!installed) {
+          return;
+        }
       }
 
       const confirmation = await prompts({

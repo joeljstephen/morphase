@@ -36,7 +36,16 @@ function equivalentCommandForRequest(request: PlanRequest): string {
         : "";
 
     if (request.route.resource === "pdf") {
+      const optionSuffix =
+        request.route.action === "split" && typeof request.options.pages === "string"
+          ? ` --pages ${request.options.pages}`
+          : "";
+
       return `morphase pdf ${request.route.action} ${printableInput}${optionSuffix}${output ? ` -o ${output}` : ""}`.trim();
+    }
+
+    if (request.route.action === "extract-images") {
+      return `morphase pdf extract-images ${printableInput}${output ? ` -o ${output}` : ""}`.trim();
     }
 
     if (request.route.action === "compress" && ["jpg", "png", "webp", "heic"].includes(request.route.resource)) {

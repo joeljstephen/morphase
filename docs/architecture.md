@@ -32,9 +32,9 @@ CLI and server are thin clients. The engine owns routing, planning, execution, d
                            |
                            v
                  +---------------------+
-                 |   Plugin Layer      |
-                 |  15 builtin plugins |
-                 +---------------------+
+                  |   Plugin Layer      |
+                  |  14 builtin plugins |
+                  +---------------------+
                            |
                            v
                  +---------------------+
@@ -100,6 +100,8 @@ morphase/
       summarize/            # YouTube transcript extraction
       jpegoptim/            # JPEG compression
       optipng/              # PNG compression
+      img2pdf/              # Image(s) to PDF conversion
+      poppler/              # PDF to image rendering + embedded image extraction
 
   docs/                     # Architecture, route matrix, support matrix, plugin authoring
   tests/                    # Planner, plugin, and normalize-request tests
@@ -408,7 +410,7 @@ Additional utilities used by most plugins:
 
 ### Plugin Registration
 
-All 15 plugins are imported and registered in `packages/plugins/src/index.ts` as the `builtinPlugins` array. The engine receives these via `morphaseEngine.create()`.
+All 14 plugins are imported and registered in `packages/plugins/src/index.ts` as the `builtinPlugins` array. The engine receives these via `MorphaseEngine.create()`.
 
 ### Builtin Plugin Matrix
 
@@ -426,6 +428,8 @@ All 15 plugins are imported and registered in `packages/plugins/src/index.ts` as
 | summarize | `summarize` | 70 | youtube-url→transcript, url→markdown | `summarize` |
 | jpegoptim | `jpegoptim` | — | jpg compress | `jpegoptim` |
 | optipng | `optipng` | — | png compress | `optipng` |
+| img2pdf | `img2pdf` | 100 | jpg→pdf, png→pdf (multi-image support) | `img2pdf` |
+| Poppler | `poppler` | 100 | pdf→png, pdf→jpg, pdf extract-images | `pdftocairo` / `pdfimages` |
 
 ### Route Preferences (`ROUTE_PREFERENCES`)
 
@@ -528,7 +532,7 @@ On startup:
 | Command | Description |
 |---------|-------------|
 | `morphase` | Launch interactive wizard |
-| `morphase convert <input> <output>` | Convert a file |
+| `morphase convert [args...]` | Convert file(s) (supports multi-image to PDF) |
 | `morphase extract <input> --to <format>` | Extract content |
 | `morphase fetch <url> --to <format>` | Fetch URL content |
 | `morphase media <input> --to <format>` | Convert audio/video |
@@ -537,6 +541,7 @@ On startup:
 | `morphase pdf merge <inputs...> -o <out>` | Merge PDFs |
 | `morphase pdf split <input> --pages <range> -o <out>` | Split PDF |
 | `morphase pdf optimize <input> -o <out>` | Optimize PDF |
+| `morphase pdf extract-images <input> [-o <path>]` | Extract embedded images from PDF |
 | `morphase doctor` | Inspect all backends |
 | `morphase backend list` | List backend install status |
 | `morphase backend status` | Detailed backend status |

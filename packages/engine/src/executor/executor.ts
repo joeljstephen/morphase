@@ -470,6 +470,79 @@ export function enrichError(
     }
   }
 
+  if (pluginId === "img2pdf") {
+    if (/not found|no such file|ENOENT/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "img2pdf could not find one or more input files.",
+        suggestedFixes: ["Check that all input file paths are correct and the files exist."]
+      };
+    }
+
+    if (/unsupported|not a valid|cannot.*image|unrecognized/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "img2pdf cannot process one or more of the input files. Only JPEG and PNG images are supported.",
+        suggestedFixes: [
+          "Ensure all input files are JPEG or PNG images.",
+          "WebP images are not supported by img2pdf. Convert them to PNG or JPEG first.",
+          "Check that no corrupted or zero-byte files are included."
+        ]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "img2pdf failed to create the PDF from the provided images.",
+        suggestedFixes: [
+          "Verify all input files are valid JPEG or PNG images.",
+          "Run morphase doctor to verify img2pdf is healthy."
+        ]
+      };
+    }
+  }
+
+  if (pluginId === "poppler") {
+    if (/not a PDF|does not look like a PDF|syntax error/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "The input file is not a valid PDF.",
+        suggestedFixes: [
+          "Verify the input file is a PDF document.",
+          "The file may be corrupted or have the wrong extension."
+        ]
+      };
+    }
+
+    if (/no such file|not found|ENOENT|unable to open/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "Poppler could not find or open the input file.",
+        suggestedFixes: ["Check that the file path is correct and the file exists."]
+      };
+    }
+
+    if (/password|encrypted/i.test(stderr)) {
+      return {
+        ...error,
+        likelyCause: "The PDF is encrypted or password-protected.",
+        suggestedFixes: ["Morphase does not support encrypted or password-protected PDFs."]
+      };
+    }
+
+    if (error.code === "BACKEND_EXECUTION_FAILED" && !error.likelyCause) {
+      return {
+        ...error,
+        likelyCause: "Poppler failed to process the PDF.",
+        suggestedFixes: [
+          "Verify the input file is a valid PDF.",
+          "Run morphase doctor to verify poppler is healthy."
+        ]
+      };
+    }
+  }
+
   return error;
 }
 
@@ -583,6 +656,21 @@ export class Executor {
 
         for (const output of step.plan.expectedOutputs ?? []) {
           outputPaths.add(output);
+        }
+
+        if (step.plan.collectFromDir) {
+          try {
+            const entries = await fs.readdir(step.plan.collectFromDir);
+            for (const entry of entries) {
+              const fullPath = path.join(step.plan.collectFromDir, entry);
+              try {
+                const stat = await fs.stat(fullPath);
+                if (stat.isFile()) {
+                  outputPaths.add(fullPath);
+                }
+              } catch {}
+            }
+          } catch {}
         }
 
         if (step.plan.stdoutFile) {

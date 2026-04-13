@@ -10,14 +10,18 @@ export { whisperPlugin } from "../whisper/src/index.js";
 export { summarizePlugin } from "../summarize/src/index.js";
 export { jpegoptimPlugin } from "../jpegoptim/src/index.js";
 export { optipngPlugin } from "../optipng/src/index.js";
+export { img2pdfPlugin } from "../img2pdf/src/index.js";
+export { popplerPlugin } from "../poppler/src/index.js";
 
 import { ffmpegPlugin } from "../ffmpeg/src/index.js";
 import { imageMagickPlugin } from "../imagemagick/src/index.js";
+import { img2pdfPlugin } from "../img2pdf/src/index.js";
 import { jpegoptimPlugin } from "../jpegoptim/src/index.js";
 import { libreOfficePlugin } from "../libreoffice/src/index.js";
 import { markitdownPlugin } from "../markitdown/src/index.js";
 import { optipngPlugin } from "../optipng/src/index.js";
 import { pandocPlugin } from "../pandoc/src/index.js";
+import { popplerPlugin } from "../poppler/src/index.js";
 import { qpdfPlugin } from "../qpdf/src/index.js";
 import { trafilaturaPlugin } from "../trafilatura/src/index.js";
 import { whisperPlugin } from "../whisper/src/index.js";
@@ -36,5 +40,7 @@ export const builtinPlugins = [
   whisperPlugin,
   summarizePlugin,
   jpegoptimPlugin,
-  optipngPlugin
+  optipngPlugin,
+  img2pdfPlugin,
+  popplerPlugin
 ];

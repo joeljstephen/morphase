@@ -43,6 +43,11 @@ export const ROUTE_PREFERENCES: Record<string, string[]> = {
   "mp4:compress": ["ffmpeg"],
   "mov:compress": ["ffmpeg"],
   "mkv:compress": ["ffmpeg"],
+  "jpg->pdf": ["img2pdf"],
+  "png->pdf": ["img2pdf"],
+  "pdf->png": ["poppler"],
+  "pdf->jpg": ["poppler"],
+  "pdf:extract-images": ["poppler"],
   "jpg:compress": ["jpegoptim"],
   "png:compress": ["optipng"]
 };

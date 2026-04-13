@@ -32,6 +32,7 @@ const imageRoutes = [
   { title: "PNG → JPG", from: "png", to: "jpg" },
   { title: "WEBP → PNG", from: "webp", to: "png" },
   { title: "WEBP → JPG", from: "webp", to: "jpg" },
+  { title: "Images → PDF (JPG, PNG · one or many)", from: "jpg", to: "pdf", multiImage: true },
   { title: "Compress JPEG", from: "jpg", to: undefined, operation: "compress" },
   { title: "Compress PNG", from: "png", to: undefined, operation: "compress" }
 ] as const;
@@ -49,6 +50,16 @@ function backChoice<T>() {
   return { title: "Back", value: BACK as T };
 }
 
+function stripQuotes(value: string): string {
+  if (
+    (value.startsWith("'") && value.endsWith("'")) ||
+    (value.startsWith('"') && value.endsWith('"'))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
 async function askOutputPath(suggestedPath: string): Promise<string | typeof BACK | undefined> {
   const answer = await prompts({
     type: "text",
@@ -56,7 +67,7 @@ async function askOutputPath(suggestedPath: string): Promise<string | typeof BAC
     message: "Save to:",
     initial: suggestedPath
   });
-  return answer.output;
+  return answer.output ? stripQuotes(answer.output) : undefined;
 }
 
 async function handlePdfCategory(): Promise<WizardStepResult> {
@@ -68,7 +79,10 @@ async function handlePdfCategory(): Promise<WizardStepResult> {
       backChoice(),
       { title: "Merge PDFs", value: "merge" },
       { title: "Split or extract pages", value: "split" },
-      { title: "Optimize or compress PDF", value: "optimize" }
+      { title: "Optimize or compress PDF", value: "optimize" },
+      { title: "PDF → PNG pages", value: "pdf-to-png" },
+      { title: "PDF → JPG pages", value: "pdf-to-jpg" },
+      { title: "Extract embedded images", value: "extract-images" }
     ]
   });
 
@@ -96,10 +110,67 @@ async function handlePdfCategory(): Promise<WizardStepResult> {
     }
 
     return {
-      input: mergeAnswers.inputs,
+      input: mergeAnswers.inputs.map((p: string) => stripQuotes(p)),
       from: "pdf",
       operation: "merge",
-      output: mergeAnswers.output
+      output: stripQuotes(mergeAnswers.output)
+    };
+  }
+
+  if (operationAnswer.operation === "pdf-to-png" || operationAnswer.operation === "pdf-to-jpg") {
+    const toFormat: ResourceKind = operationAnswer.operation === "pdf-to-png" ? "png" : "jpg";
+
+    const inputAnswer = await prompts({
+      type: "text",
+      name: "input",
+      message: "Input PDF path:"
+    });
+
+    if (!inputAnswer.input) {
+      return null;
+    }
+
+    const inputPath = stripQuotes(inputAnswer.input);
+    const suggestedOutput = path.resolve(deriveOutputPath(inputPath, toFormat));
+    const output = await askOutputPath(suggestedOutput);
+
+    if (!output) {
+      return null;
+    }
+
+    return {
+      input: inputPath,
+      from: "pdf",
+      to: toFormat,
+      output
+    };
+  }
+
+  if (operationAnswer.operation === "extract-images") {
+    const inputAnswer = await prompts({
+      type: "text",
+      name: "input",
+      message: "Input PDF path:"
+    });
+
+    if (!inputAnswer.input) {
+      return null;
+    }
+
+    const inputPath = stripQuotes(inputAnswer.input);
+    const parsed = path.parse(path.resolve(inputPath));
+    const suggestedOutput = path.join(parsed.dir, `${parsed.name}-images`);
+    const output = await askOutputPath(suggestedOutput);
+
+    if (!output) {
+      return null;
+    }
+
+    return {
+      input: inputPath,
+      from: "pdf",
+      operation: "extract-images",
+      output
     };
   }
 
@@ -126,10 +197,10 @@ async function handlePdfCategory(): Promise<WizardStepResult> {
   }
 
   return {
-    input: splitAnswers.input,
+    input: stripQuotes(splitAnswers.input),
     from: "pdf",
     operation: operationAnswer.operation,
-    output: splitAnswers.output,
+    output: stripQuotes(splitAnswers.output),
     options: splitAnswers.pages ? { pages: splitAnswers.pages } : {}
   };
 }
@@ -192,8 +263,9 @@ async function handleWebUrlCategory(): Promise<WizardStepResult> {
       return null;
     }
 
-    const isYT = isYoutubeUrl(urlAnswer.input);
-    const isMedia = isMediaUrl(urlAnswer.input);
+    const rawUrl = stripQuotes(urlAnswer.input);
+    const isYT = isYoutubeUrl(rawUrl);
+    const isMedia = isMediaUrl(rawUrl);
     if (!isYT && !isMedia) {
       return null;
     }
@@ -220,7 +292,7 @@ async function handleWebUrlCategory(): Promise<WizardStepResult> {
       format = formatAnswer.format;
     }
 
-    const inferredOutput = path.resolve(deriveOutputPath(urlAnswer.input, toFormat));
+    const inferredOutput = path.resolve(deriveOutputPath(rawUrl, toFormat));
     const suggestedOutput =
       format === "markdown" && toFormat === "transcript"
         ? inferredOutput.replace(/\.txt$/, ".md")
@@ -232,7 +304,7 @@ async function handleWebUrlCategory(): Promise<WizardStepResult> {
     }
 
     return {
-      input: urlAnswer.input,
+      input: rawUrl,
       from,
       to: toFormat,
       output,
@@ -265,11 +337,13 @@ async function handleWebUrlCategory(): Promise<WizardStepResult> {
     return null;
   }
 
-  if (!isUrl(urlAnswer.input)) {
+  const rawUrl = stripQuotes(urlAnswer.input);
+
+  if (!isUrl(rawUrl)) {
     return null;
   }
 
-  const suggestedOutput = deriveOutputPath(urlAnswer.input, toFormat);
+  const suggestedOutput = deriveOutputPath(rawUrl, toFormat);
   const output = await askOutputPath(suggestedOutput);
 
   if (!output) {
@@ -277,7 +351,7 @@ async function handleWebUrlCategory(): Promise<WizardStepResult> {
   }
 
   return {
-    input: urlAnswer.input,
+    input: rawUrl,
     from: "url",
     to: toFormat,
     output
@@ -318,7 +392,36 @@ async function handleRouteCategory(
     from: ResourceKind | undefined;
     to: ResourceKind | undefined;
     operation?: string;
+    multiImage?: boolean;
   };
+
+  if (selected.multiImage) {
+    const imagesAnswer = await prompts({
+      type: "list",
+      name: "inputs",
+      message: "Image path(s) — separate multiple with commas (JPG, PNG):",
+      separator: ","
+    });
+
+    if (!imagesAnswer.inputs || imagesAnswer.inputs.length === 0) {
+      return null;
+    }
+
+    const inputs = imagesAnswer.inputs.map((p: string) => stripQuotes(p));
+    const suggestedOutput = path.resolve(deriveOutputPath(inputs[0], selected.to!));
+    const output = await askOutputPath(suggestedOutput);
+
+    if (!output) {
+      return null;
+    }
+
+    return {
+      input: inputs,
+      from: selected.from ?? inferResourceKind(inputs[0]),
+      to: selected.to,
+      output
+    };
+  }
 
   const inputAnswer = await prompts({
     type: "text",
@@ -330,12 +433,13 @@ async function handleRouteCategory(
     return null;
   }
 
-  const from = selected.from ?? inferResourceKind(inputAnswer.input);
+  const inputPath = stripQuotes(inputAnswer.input);
+  const from = selected.from ?? inferResourceKind(inputPath);
 
   if (selected.from) {
-    const inferred = inferResourceKind(inputAnswer.input);
+    const inferred = inferResourceKind(inputPath);
     if (inferred && inferred !== selected.from) {
-      const ext = path.extname(inputAnswer.input);
+      const ext = path.extname(inputPath);
       console.log(`  \x1b[33mWarning: Input looks like ${inferred} (${ext || "URL"}) but this route expects ${selected.from}.\x1b[0m`);
       const confirmAnswer = await prompts({
         type: "confirm",
@@ -350,8 +454,8 @@ async function handleRouteCategory(
   }
 
   if (selected.operation === "compress") {
-    const resourceFrom = from ?? inferResourceKind(inputAnswer.input) ?? "mp4";
-    const suggestedOutput = path.resolve(deriveOperationOutputPath(inputAnswer.input, resourceFrom));
+    const resourceFrom = from ?? inferResourceKind(inputPath) ?? "mp4";
+    const suggestedOutput = path.resolve(deriveOperationOutputPath(inputPath, resourceFrom));
     const output = await askOutputPath(suggestedOutput);
 
     if (!output) {
@@ -359,7 +463,7 @@ async function handleRouteCategory(
     }
 
     return {
-      input: inputAnswer.input,
+      input: inputPath,
       from: resourceFrom,
       operation: "compress",
       output
@@ -367,7 +471,7 @@ async function handleRouteCategory(
   }
 
   const to = selected.to!;
-  const suggestedOutput = path.resolve(deriveOutputPath(inputAnswer.input, to));
+  const suggestedOutput = path.resolve(deriveOutputPath(inputPath, to));
   const output = await askOutputPath(suggestedOutput);
 
   if (!output) {
@@ -375,8 +479,8 @@ async function handleRouteCategory(
   }
 
   return {
-    input: inputAnswer.input,
-    from: from ?? inferResourceKind(inputAnswer.input),
+    input: inputPath,
+    from: from ?? inferResourceKind(inputPath),
     to,
     output
   };

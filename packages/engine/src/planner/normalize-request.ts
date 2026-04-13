@@ -115,6 +115,33 @@ function ensureLocalInputsExist(input: string | string[]): void {
   });
 }
 
+const imageResourceKinds: import("@morphase/shared").ResourceKind[] = ["jpg", "png", "webp"];
+
+function validateMultiImageInput(input: string | string[], to: import("@morphase/shared").ResourceKind | undefined): void {
+  if (to !== "pdf" || !Array.isArray(input) || input.length <= 1) {
+    return;
+  }
+
+  const nonImageInputs = input.filter((item) => {
+    if (isUrl(item)) {
+      return true;
+    }
+    const kind = inferResourceKind(item);
+    return !kind || !imageResourceKinds.includes(kind);
+  });
+
+  if (nonImageInputs.length > 0) {
+    throw createError({
+      code: "INVALID_INPUT",
+      message: `Some input files are not images: ${nonImageInputs.join(", ")}`,
+      suggestedFixes: [
+        "Only JPG, PNG, and WebP images can be combined into a PDF.",
+        "Remove non-image files from the input list."
+      ]
+    });
+  }
+}
+
 function outputMatchesInput(output: string, input: string | string[]): boolean {
   return localInputs(input).some((item) => path.resolve(output) === path.resolve(item));
 }
@@ -155,6 +182,7 @@ export function normalizeRequest(
 } {
   const normalizedInput = normalizeInput(request.input);
   ensureLocalInputsExist(normalizedInput);
+  validateMultiImageInput(normalizedInput, request.to);
   const from = request.from ?? inferResourceKind(Array.isArray(normalizedInput) ? normalizedInput[0] : normalizedInput);
   const to = request.to;
 
