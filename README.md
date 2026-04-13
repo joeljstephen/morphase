@@ -299,6 +299,10 @@ Contributions are welcome. Good entry points:
 - **Tests** — the test suite lives in `tests/`. Add cases for new routes, edge cases, or platform-specific behavior.
 - **Documentation** — improve guides, examples, or doc strings.
 
+## Support
+
+[![Buy Me A Coffee](https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=joeljstephen&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff)](https://buymeacoffee.com/joeljstephen)
+
 ## License
 
 [MIT](LICENSE) © Morphase contributors
