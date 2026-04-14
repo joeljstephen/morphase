@@ -159,4 +159,37 @@ describe("normalizeRequest", () => {
       )
     ).toThrow(/Refusing to overwrite existing output/);
   });
+
+  it("requires at least two inputs for PDF merge", () => {
+    fs.writeFileSync(path.join(fixtureDir, "single.pdf"), "");
+
+    expect(() =>
+      normalizeRequest(
+        {
+          input: ["single.pdf"],
+          from: "pdf",
+          operation: "merge",
+          output: "merged.pdf"
+        },
+        { offlineOnly: false }
+      )
+    ).toThrow(/requires at least two input files/);
+  });
+
+  it("rejects malformed PDF split ranges before invoking qpdf", () => {
+    fs.writeFileSync(path.join(fixtureDir, "document.pdf"), "");
+
+    expect(() =>
+      normalizeRequest(
+        {
+          input: "document.pdf",
+          from: "pdf",
+          operation: "split",
+          output: "split.pdf",
+          options: { pages: "nope" }
+        },
+        { offlineOnly: false }
+      )
+    ).toThrow(/Invalid page range/);
+  });
 });

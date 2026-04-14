@@ -11,6 +11,13 @@ import { inferResourceKind, isMediaUrl, isYoutubeUrl, type JobRequest, type Reso
 import { formatCliError, formatDoctorReport, formatJobResult } from "./format.js";
 import { runWizard } from "./wizard.js";
 
+function printCliError(error: unknown, options?: { setExitCode?: boolean }) {
+  console.log(formatCliError(error));
+  if (options?.setExitCode) {
+    process.exitCode = 1;
+  }
+}
+
 function collectCommonOptions(command: Command): Command {
   return command
     .option("--from <kind>", "Explicitly set the input resource kind")
@@ -272,12 +279,12 @@ async function main() {
           output,
           to: inferResourceKind(output)
         }),
-        { setExitCode: true }
-      );
-    } catch (error) {
-      console.log(formatCliError(error));
-    }
-  });
+          { setExitCode: true }
+        );
+      } catch (error) {
+        printCliError(error, { setExitCode: true });
+      }
+    });
 
   collectCommonOptions(
     program.command("extract <input>").description("Extract content to another representation")
@@ -296,7 +303,7 @@ async function main() {
           { setExitCode: true }
         );
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -324,7 +331,7 @@ async function main() {
           { setExitCode: true }
         );
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -343,7 +350,7 @@ async function main() {
           { setExitCode: true }
         );
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -367,7 +374,7 @@ async function main() {
           { setExitCode: true }
         );
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -391,7 +398,7 @@ async function main() {
           { setExitCode: true }
         );
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -413,7 +420,7 @@ async function main() {
           { setExitCode: true }
         );
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -437,7 +444,7 @@ async function main() {
           { setExitCode: true }
         );
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -457,7 +464,7 @@ async function main() {
           { setExitCode: true }
         );
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -477,7 +484,7 @@ async function main() {
           { setExitCode: true }
         );
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -489,7 +496,7 @@ async function main() {
         console.log("");
       }
     } catch (error) {
-      console.log(formatCliError(error));
+      printCliError(error, { setExitCode: true });
     }
   });
 
@@ -520,7 +527,7 @@ async function main() {
       }
       console.log("");
     } catch (error) {
-      console.log(formatCliError(error));
+      printCliError(error, { setExitCode: true });
     }
   });
 
@@ -532,7 +539,7 @@ async function main() {
         console.log("");
       }
     } catch (error) {
-      console.log(formatCliError(error));
+      printCliError(error, { setExitCode: true });
     }
   });
 
@@ -541,7 +548,7 @@ async function main() {
       const report = await engine.doctorBackend(backendId);
       console.log(formatDoctorReport(report));
     } catch (error) {
-      console.log(formatCliError(error));
+      printCliError(error, { setExitCode: true });
     }
   });
 
@@ -552,7 +559,7 @@ async function main() {
       try {
         await printBackendHints(engine, backendId, "install", options.run as boolean);
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -563,7 +570,7 @@ async function main() {
       try {
         await printBackendHints(engine, backendId, "update", options.run as boolean);
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -579,7 +586,7 @@ async function main() {
           })
         );
       } catch (error) {
-        console.log(formatCliError(error));
+        printCliError(error, { setExitCode: true });
       }
     });
 
@@ -612,7 +619,7 @@ async function main() {
 
       await handleJob(engine, request);
     } catch (error) {
-      console.log(formatCliError(error));
+      printCliError(error, { setExitCode: true });
     }
 
     return;
@@ -622,5 +629,5 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.log(formatCliError(error));
+  printCliError(error, { setExitCode: true });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { pandocPlugin, trafilaturaPlugin, summarizePlugin, ytdlpPlugin } from "../packages/plugins/src/index.js";
+import { libreOfficePlugin, pandocPlugin, trafilaturaPlugin, summarizePlugin, ytdlpPlugin } from "../packages/plugins/src/index.js";
 
 describe("builtin plugins", () => {
   it("builds a pandoc plan for markdown to docx", async () => {
@@ -40,6 +40,27 @@ describe("builtin plugins", () => {
     });
 
     expect(plan?.stdoutFile).toBe("article.md");
+  });
+
+  it("uses the PDF import filter for LibreOffice pdf to docx conversion", async () => {
+    const plan = await libreOfficePlugin.plan({
+      input: "report.pdf",
+      from: "pdf",
+      to: "docx",
+      output: "report-converted.docx",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "pdf",
+        to: "docx"
+      }
+    });
+
+    expect(plan?.command).toBe("soffice");
+    expect(plan?.args).toContain("--infilter=writer_pdf_import");
+    expect(plan?.args).toContain("docx:MS Word 2007 XML");
   });
 });
 

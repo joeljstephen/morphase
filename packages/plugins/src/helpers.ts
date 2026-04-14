@@ -68,10 +68,20 @@ export function libreOfficeConvert(inputPath: string, outputPath: string, format
   const outputDir = path.dirname(outputPath);
   const sourceName = `${path.parse(inputPath).name}.${format}`;
   const generated = path.join(outputDir, sourceName);
+  const args = ["--headless"];
+
+  // PDF import requires an explicit filter before LibreOffice can export to DOCX.
+  if (path.extname(inputPath).toLowerCase() === ".pdf" && format === "docx") {
+    args.push("--infilter=writer_pdf_import", "--convert-to", "docx:MS Word 2007 XML");
+  } else {
+    args.push("--convert-to", format);
+  }
+
+  args.push("--outdir", outputDir, inputPath);
 
   return {
     command: "soffice",
-    args: ["--headless", "--convert-to", format, "--outdir", outputDir, inputPath],
+    args,
     expectedOutputs: [outputPath],
     outputMapping:
       path.resolve(generated) === path.resolve(outputPath)
@@ -110,4 +120,3 @@ export async function supportsImageMagickFormat(format: string): Promise<boolean
 
   return false;
 }
-

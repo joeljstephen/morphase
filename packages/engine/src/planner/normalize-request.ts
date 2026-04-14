@@ -116,6 +116,7 @@ function ensureLocalInputsExist(input: string | string[]): void {
 }
 
 const imageResourceKinds: import("@morphase/shared").ResourceKind[] = ["jpg", "png", "webp"];
+const pageRangePattern = /^\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*$/;
 
 function validateMultiImageInput(input: string | string[], to: import("@morphase/shared").ResourceKind | undefined): void {
   if (to !== "pdf" || !Array.isArray(input) || input.length <= 1) {
@@ -144,6 +145,36 @@ function validateMultiImageInput(input: string | string[], to: import("@morphase
 
 function outputMatchesInput(output: string, input: string | string[]): boolean {
   return localInputs(input).some((item) => path.resolve(output) === path.resolve(item));
+}
+
+function validateOperationInputs(request: JobRequest, input: string | string[]): void {
+  if (request.operation === "merge") {
+    const inputs = Array.isArray(input) ? input : [input];
+    if (inputs.length < 2) {
+      throw createError({
+        code: "INVALID_INPUT",
+        message: "PDF merge requires at least two input files.",
+        suggestedFixes: [
+          "Pass two or more PDF files to `morphase pdf merge`.",
+          "Use `morphase pdf split` when you only need a subset of one PDF."
+        ]
+      });
+    }
+  }
+
+  if (request.operation === "split") {
+    const pages = request.options?.pages;
+    if (typeof pages !== "string" || !pageRangePattern.test(pages)) {
+      throw createError({
+        code: "INVALID_INPUT",
+        message: `Invalid page range "${String(pages ?? "")}".`,
+        suggestedFixes: [
+          "Use comma-separated page numbers or ranges such as 1,3,5-7.",
+          "Pass the range with `--pages`, for example `--pages 1-3,5`."
+        ]
+      });
+    }
+  }
 }
 
 function assertSafeOutputPath(output: string, input: string | string[], force = false): void {
@@ -183,6 +214,7 @@ export function normalizeRequest(
   const normalizedInput = normalizeInput(request.input);
   ensureLocalInputsExist(normalizedInput);
   validateMultiImageInput(normalizedInput, request.to);
+  validateOperationInputs(request, normalizedInput);
   let from: ResourceKind | undefined;
   if (request.from) {
     if (!resourceKinds.includes(request.from)) {

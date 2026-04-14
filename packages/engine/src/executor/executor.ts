@@ -641,11 +641,6 @@ export class Executor {
           logs.push(result.stderr);
         }
 
-        if (step.plan.stdoutFile) {
-          await ensureParentDirectory(step.plan.stdoutFile);
-          await fs.writeFile(step.plan.stdoutFile, result.stdout ?? "", "utf8");
-        }
-
         if (result.exitCode !== 0) {
           throw createError({
             code: "BACKEND_EXECUTION_FAILED",
@@ -654,6 +649,11 @@ export class Executor {
             rawStdout: result.stdout,
             rawStderr: result.stderr
           });
+        }
+
+        if (step.plan.stdoutFile) {
+          await ensureParentDirectory(step.plan.stdoutFile);
+          await fs.writeFile(step.plan.stdoutFile, result.stdout ?? "", "utf8");
         }
 
         if (step.plan.outputMapping?.length) {
