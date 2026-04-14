@@ -11,8 +11,12 @@ export async function loadMorphaseConfig(): Promise<MorphaseConfig> {
   try {
     const raw = await fs.readFile(configPath, "utf8");
     return morphaseConfigSchema.parse(JSON.parse(raw));
-  } catch {
-    return morphaseConfigSchema.parse({});
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return morphaseConfigSchema.parse({});
+    }
+
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to load Morphase config from ${configPath}: ${reason}`);
   }
 }
-

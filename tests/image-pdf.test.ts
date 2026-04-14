@@ -15,11 +15,7 @@ const baseConfig: MorphaseConfig = {
   offlineOnly: false,
   preferredBackends: {},
   debug: false,
-  allowPackageManagerDelegation: false,
-  server: {
-    host: "127.0.0.1",
-    port: 3210
-  }
+  allowPackageManagerDelegation: false
 };
 
 function createPlugin(plugin: Partial<MorphasePlugin> & Pick<MorphasePlugin, "id" | "name" | "priority">): MorphasePlugin {

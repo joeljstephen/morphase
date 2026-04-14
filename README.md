@@ -107,7 +107,6 @@ All commands below are stable and tested:
 | `morphase backend install <id>` | Show install hints for a backend |
 | `morphase backend update <id>` | Show update hints for a backend |
 | `morphase explain <input> --to <format>` | Show the plan without executing |
-| `morphase serve` | Start local HTTP API server (experimental) |
 
 ### Common Options
 
@@ -130,16 +129,6 @@ The `fetch` command also accepts:
 |------|-------------|
 | `--format <format>` | Transcript format: `text` or `markdown` |
 | `--quality <quality>` | Quality level: `best`, `high`, `medium`, `low` |
-
-### Serve Options
-
-The `serve` command accepts:
-
-| Flag | Description |
-|------|-------------|
-| `--host <addr>` | Bind address (default: `127.0.0.1`) |
-| `--port <port>` | Bind port (default: `3210`) |
-| `--allow-remote` | Allow non-localhost connections |
 
 ## Plugins
 
@@ -326,14 +315,13 @@ pnpm test:watch
 morphase/
   apps/
     cli/                    # CLI (Commander + interactive wizard)
-    server/                 # Local API server (Fastify, experimental)
   packages/
     shared/                 # Types, schemas, constants, utilities
     engine/                 # Core routing, planning, execution engine
     plugin-sdk/             # Plugin authoring helpers
     plugins/                # All builtin backend plugins (14 plugins)
   docs/                     # Architecture, route matrix, support matrix
-  tests/                    # Planner, plugin, normalize-request, server tests
+  tests/                    # Planner, plugin, normalize-request, and route tests
 ```
 
 ### Contributing

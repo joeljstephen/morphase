@@ -6,7 +6,6 @@ import { execa } from "execa";
 import prompts from "prompts";
 
 import { MorphaseEngine } from "@morphase/engine";
-import { createMorphaseServer, validateServerHost } from "@morphase/server";
 import { inferResourceKind, isMediaUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@morphase/shared";
 
 import { formatCliError, formatDoctorReport, formatJobResult } from "./format.js";
@@ -579,27 +578,6 @@ async function main() {
             to: options.to as ResourceKind
           })
         );
-      } catch (error) {
-        console.log(formatCliError(error));
-      }
-    });
-
-  program
-    .command("serve")
-    .description("[experimental] Start a local HTTP API server")
-    .option("--host <host>", "Host to bind to")
-    .option("--port <port>", "Port to bind to", (value) => Number(value))
-    .option("--allow-remote", "Allow binding to a non-loopback host", false)
-    .action(async (options) => {
-      try {
-        const { app } = await createMorphaseServer(engine);
-        const host = validateServerHost(
-          (options.host as string | undefined) ?? engine.getConfig().server.host,
-          options.allowRemote as boolean
-        );
-        const port = (options.port as number | undefined) ?? engine.getConfig().server.port;
-        await app.listen({ host, port });
-        console.log(`morphase server listening on http://${host}:${port}`);
       } catch (error) {
         console.log(formatCliError(error));
       }

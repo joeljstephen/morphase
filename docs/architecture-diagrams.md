@@ -8,7 +8,6 @@ graph TB
 
     subgraph "Entry Points"
         CLI["CLI<br/>Commander + Interactive Wizard"]
-        Server["HTTP API Server<br/>Fastify (experimental)"]
     end
 
     subgraph "Morphase Engine"
@@ -67,11 +66,8 @@ graph TB
         ExtPop["pdftocairo / pdfimages"]
     end
 
-    User --> CLI
-    User --> Server
-
     CLI --> Engine
-    Server --> Engine
+    User --> CLI
 
     Engine --> Config
     Engine --> Registry
@@ -105,7 +101,6 @@ graph TB
     Pop -.-> ExtPop
 
     style CLI fill:#4A90D9,color:#fff
-    style Server fill:#4A90D9,color:#fff
     style Engine fill:#E8833A,color:#fff
     style Normalize fill:#F5C842,color:#333
     style Plan fill:#F5C842,color:#333
@@ -124,7 +119,7 @@ graph TB
 ```mermaid
 sequenceDiagram
     participant User
-    participant CLI as CLI / Server
+    participant CLI as CLI
     participant Engine as MorphaseEngine
     participant Norm as normalizeRequest
     participant Planner as Planner
@@ -177,7 +172,6 @@ graph TD
     Plugins["@morphase/plugins<br/>14 builtin backend plugins"]
     Engine["@morphase/engine<br/>Planner, executor, registry, doctor"]
     CLI["morphase-cli<br/>Commander + prompts"]
-    Server["@morphase/server<br/>Fastify HTTP API"]
 
     SDK --> Shared
     Plugins --> Shared
@@ -185,17 +179,13 @@ graph TD
     Engine --> Shared
     Engine --> Plugins
     CLI --> Engine
-    CLI --> Server
     CLI --> Shared
-    Server --> Engine
-    Server --> Shared
 
     style Shared fill:#50C878,color:#fff
     style SDK fill:#9B59B6,color:#fff
     style Plugins fill:#E74C3C,color:#fff
     style Engine fill:#E8833A,color:#fff
     style CLI fill:#4A90D9,color:#fff
-    style Server fill:#4A90D9,color:#fff
 ```
 
 ## Plugin Interface
@@ -325,50 +315,6 @@ graph LR
     style D3 fill:#50C878,color:#fff
 ```
 
-## HTTP API Endpoints
-
-```mermaid
-graph TB
-    Client((Client))
-
-    subgraph "Fastify Server (default :3210)"
-        Health["GET /health<br/>Service health check"]
-        Caps["GET /capabilities<br/>All plugin capabilities"]
-        Backends["GET /backends<br/>Doctor report for all"]
-        Backend["GET /backends/:id<br/>Doctor report for one"]
-        CreateJob["POST /jobs<br/>Submit JobRequest"]
-        GetJob["GET /jobs/:id<br/>Get job record"]
-        JobLogs["GET /jobs/:id/logs<br/>Get job logs"]
-        JobResult["GET /jobs/:id/result<br/>Get job result"]
-    end
-
-    subgraph Engine Methods
-        Submit["engine.submit()"]
-        Get["engine.getJob()"]
-        DoctorAll["engine.doctorAll()"]
-        DoctorOne["engine.doctorBackend()"]
-        CapMethod["engine.capabilities()"]
-    end
-
-    Client --> Health & Caps & Backends & Backend & CreateJob & GetJob & JobLogs & JobResult
-
-    CreateJob --> Submit
-    GetJob --> Get
-    Backends --> DoctorAll
-    Backend --> DoctorOne
-    Caps --> CapMethod
-
-    style Client fill:#333,color:#fff
-    style Health fill:#50C878,color:#fff
-    style Caps fill:#50C878,color:#fff
-    style Backends fill:#4A90D9,color:#fff
-    style Backend fill:#4A90D9,color:#fff
-    style CreateJob fill:#E8833A,color:#fff
-    style GetJob fill:#4A90D9,color:#fff
-    style JobLogs fill:#4A90D9,color:#fff
-    style JobResult fill:#4A90D9,color:#fff
-```
-
 ## CLI Command Tree
 
 ```mermaid
@@ -386,7 +332,6 @@ graph LR
     Root --> Doctor["doctor<br/>Health check"]
     Root --> Backend["backend"]
     Root --> Explain["explain &lt;input&gt; --to<br/>Preview plan"]
-    Root --> Serve["serve<br/>Start API server"]
 
     Image --> ImgCompress["compress &lt;input&gt;"]
     Video --> VidCompress["compress &lt;input&gt;"]
@@ -410,5 +355,4 @@ graph LR
     style Media fill:#4A90D9,color:#fff
     style Doctor fill:#50C878,color:#fff
     style Explain fill:#50C878,color:#fff
-    style Serve fill:#50C878,color:#fff
 ```

@@ -34,7 +34,6 @@
   },
   "dependencies": {
     "@morphase/engine": "workspace:*",
-    "@morphase/server": "workspace:*",
     "@morphase/shared": "workspace:*",
     "commander": "^14.0.1",
     "execa": "^9.6.0",

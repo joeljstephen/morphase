@@ -2,25 +2,19 @@
 
 ## Guiding Principle
 
-> **One shared engine, many interfaces, pluggable backends.**
+> **One shared engine, CLI-first workflows, pluggable backends.**
 
-CLI and server are thin clients. The engine owns routing, planning, execution, doctoring, and job tracking. Plugins isolate backend-specific behavior. Shared types and schemas keep the public surface consistent. The server and CLI both call the same `MorphaseEngine` entry point.
+The CLI is intentionally thin. The engine owns routing, planning, execution, doctoring, and job tracking. Plugins isolate backend-specific behavior. Shared types and schemas keep the public surface consistent.
 
 ---
 
 ## High-Level System Diagram
 
 ```
-                 +-------------------+
-                 |     Web UI        |
-                 |   (future client) |
-                 +---------+---------+
-                           |
-                           v
-+-----------+    +-------------------+    +------------------+
-|   CLI     | -> |   Morphase Engine  | <- |  Local API       |
-| (client)  |    |                   |    |  Server          |
-+-----------+    | - registry        |    +------------------+
++-----------+    +-------------------+    +---------------------+    +---------------------+
+|   CLI     | -> |   Morphase Engine  | -> |   Plugin Layer      | -> | External Binaries / |
+| (client)  |    |                   |    | 14 builtin plugins  |    | Local Tooling       |
++-----------+    | - registry        |    +---------------------+    +---------------------+
                  | - planner         |
                  | - executor        |
                  | - doctor          |
@@ -28,19 +22,7 @@ CLI and server are thin clients. The engine owns routing, planning, execution, d
                  | - config          |
                  | - platform        |
                  | - logger          |
-                 +---------+---------+
-                           |
-                           v
-                 +---------------------+
-                  |   Plugin Layer      |
-                  |  14 builtin plugins |
-                  +---------------------+
-                           |
-                           v
-                 +---------------------+
-                 | External Binaries / |
-                 | Local Tooling       |
-                 +---------------------+
+                 +-------------------+
 ```
 
 ---
@@ -53,7 +35,6 @@ morphase uses a **pnpm workspace** monorepo. The root `pnpm-workspace.yaml` decl
 morphase/
   apps/
     cli/                    # Interactive and direct CLI (commander + prompts)
-    server/                 # Local API server (Fastify)
 
   packages/
     shared/                 # Types, schemas, constants, utilities
@@ -103,7 +84,7 @@ morphase/
       poppler/              # PDF to image rendering + embedded image extraction
 
   docs/                     # Architecture, route matrix, support matrix, plugin authoring
-  tests/                    # Planner, plugin, normalize-request, server, and route tests
+  tests/                    # Planner, plugin, normalize-request, and route tests
 ```
 
 ---
@@ -123,8 +104,7 @@ morphase/
 @morphase/engine          (depends on @morphase/shared + @morphase/plugin-sdk + @morphase/plugins)
     ^
     |
-  +- @morphase/server     (depends on @morphase/engine + @morphase/shared)
-  +- morphase-cli         (depends on @morphase/engine + @morphase/server + @morphase/shared)
+  +- morphase-cli         (depends on @morphase/engine + @morphase/shared)
 ```
 
 Key external dependencies:
@@ -132,7 +112,6 @@ Key external dependencies:
 - **execa** — process spawning (`@morphase/engine`, `morphase-cli`)
 - **commander** — CLI argument parsing (`morphase-cli`)
 - **prompts** — interactive wizard (`morphase-cli`)
-- **fastify** — HTTP server (`@morphase/server`)
 
 ---
 
@@ -340,12 +319,11 @@ Config is loaded from `~/.morphase/config.json`, validated with Zod against `mor
   offlineOnly: false,                    // Reject network-backed backends
   preferredBackends: {},                 // Override route → plugin preferences
   debug: false,                          // Enable debug logging
-  allowPackageManagerDelegation: false,  // Allow running install commands
-  server: { host: "127.0.0.1", port: 3210 }
+  allowPackageManagerDelegation: false   // Allow running install commands
 }
 ```
 
-If the file is missing or invalid, defaults are used.
+If the file is missing, defaults are used. If the file is invalid, config loading fails closed with an error.
 
 ### Logger (`packages/engine/src/logging/logger.ts`)
 
@@ -465,7 +443,7 @@ This is the complete flow from user input to final result:
 User Input
     │
     v
-[CLI / Server] builds JobRequest
+[CLI] builds JobRequest
     │
     v
 morphaseEngine.submit(request)
@@ -548,15 +526,12 @@ On startup:
 | `morphase backend install <id> [--run]` | Show/run install command |
 | `morphase backend update <id> [--run]` | Show/run update command |
 | `morphase explain <input> --to <format>` | Show plan without running |
-| `morphase serve [--host] [--port]` | Start API server |
 
 ### Common Options
 
 All conversion commands support: `--from`, `--backend`, `--offline`, `--debug`, `--dry-run`, `--force`.
 
 The `fetch` command also supports: `--format` (transcript format: text/markdown), `--quality` (best/high/medium/low).
-
-The `serve` command also supports: `--host`, `--port`, `--allow-remote`.
 
 ### Interactive Wizard (`src/wizard.ts`)
 
@@ -578,37 +553,6 @@ Three formatters produce human-readable terminal output with ANSI colors:
 - `formatDoctorReport()` — Backend name, installed status, version, install hint, issues.
 - `formatCliError()` — Structured error display with cause and fix suggestions.
 
----
-
-## Server Architecture (`apps/server`)
-
-A **Fastify** HTTP server that reuses the same `morphaseEngine`.
-
-### Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Service health check |
-| `GET` | `/capabilities` | All plugin capabilities |
-| `GET` | `/backends` | Doctor report for all backends |
-| `GET` | `/backends/:id` | Doctor report for one backend |
-| `POST` | `/jobs` | Submit a job (body: `JobRequest`) |
-| `GET` | `/jobs/:id` | Get job record |
-| `GET` | `/jobs/:id/logs` | Get job logs |
-| `GET` | `/jobs/:id/result` | Get job result |
-
-### Security Defaults
-
-- Binds to `127.0.0.1:3210` by default (localhost only)
-- No auth in v1
-- Same engine instance as CLI — no shell-out to CLI commands
-
-### Startup
-
-The CLI's `morphase serve` command calls `createmorphaseServer(engine)`, which either accepts an existing engine or creates one. The server is designed to be imported as a library for future web UI integration.
-
----
-
 ## Testing Strategy
 
 Tests live in the root `tests/` directory and use **Vitest**.
@@ -618,7 +562,6 @@ Tests live in the root `tests/` directory and use **Vitest**.
 | `tests/planner.test.ts` | Planner scoring, candidate selection, route preferences, pipeline fallback |
 | `tests/plugins.test.ts` | Plugin metadata, capability declarations, detect/verify behavior |
 | `tests/normalize-request.test.ts` | Request normalization, path resolution, resource kind inference |
-| `tests/server.test.ts` | Server endpoint safety, request validation, response structure |
 | `tests/youtube.test.ts` | YouTube URL detection and route handling |
 | `tests/image-pdf.test.ts` | Image-to-PDF and PDF-to-image route handling |
 

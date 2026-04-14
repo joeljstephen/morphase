@@ -13,7 +13,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - `morphase doctor` for backend health inspection
 - `morphase explain` for route planning without execution
 - `morphase backend list/status/verify/install/update` for backend management
-- `morphase serve` for local HTTP API (experimental), with `--host`, `--port`, `--allow-remote` options
 - Shared engine architecture with plugin registry, planner, executor, doctor, and job manager
 - Plugin SDK for consistent plugin authoring
 - Stable plugins: pandoc, libreoffice, ffmpeg, imagemagick, qpdf, trafilatura, ytdlp, img2pdf, poppler
