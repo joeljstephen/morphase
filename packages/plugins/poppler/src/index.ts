@@ -95,6 +95,7 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
         return {
           command: "pdftocairo",
           args: ["-png", "-r", "150", "-singlefile", request.input, prefix],
+          expectedOutputs: [request.output],
           collectFromDir: dir
         };
       }
@@ -103,6 +104,7 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
         return {
           command: "pdftocairo",
           args: ["-jpeg", "-r", "150", "-singlefile", request.input, prefix],
+          expectedOutputs: [request.output],
           collectFromDir: dir
         };
       }

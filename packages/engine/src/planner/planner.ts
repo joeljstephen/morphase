@@ -21,13 +21,19 @@ import { createError } from "../errors/morphase-error.js";
 import { curatedPipelines } from "./pipelines.js";
 import { PluginRegistry } from "../registry/plugin-registry.js";
 
+function printablePath(absolutePath: string): string {
+  const baseCwd = process.env.INIT_CWD ?? process.cwd();
+  const relative = path.relative(baseCwd, absolutePath);
+  if (!relative.includes("..")) return relative || ".";
+  return absolutePath;
+}
+
 function equivalentCommandForRequest(request: PlanRequest): string {
   const input = Array.isArray(request.input) ? request.input.join(" ") : request.input;
-  const baseCwd = process.env.INIT_CWD ?? process.cwd();
   const printableInput = Array.isArray(request.input)
-    ? request.input.map((item) => path.isAbsolute(item) ? path.relative(baseCwd, item) || "." : item).join(" ")
-    : path.isAbsolute(input) ? path.relative(baseCwd, input) || "." : input;
-  const output = request.output ? (path.isAbsolute(request.output) ? path.relative(baseCwd, request.output) : request.output) : "";
+    ? request.input.map((item) => path.isAbsolute(item) ? printablePath(item) : item).join(" ")
+    : path.isAbsolute(input) ? printablePath(input) : input;
+  const output = request.output ? (path.isAbsolute(request.output) ? printablePath(request.output) : request.output) : "";
 
   if (request.route.kind === "operation") {
     const optionSuffix =
@@ -237,11 +243,19 @@ export class Planner {
         ROUTE_PREFERENCES[routeKey(request.route)] ??
         [];
 
+    const candidateIds = new Set(candidates.map(({ plugin }) => plugin.id));
+    const backendIgnoredWarning = preferredBackend && !candidateIds.has(preferredBackend)
+      ? `--backend ${preferredBackend} does not support ${routeKey(request.route)} and was ignored.`
+      : undefined;
+
     if (candidates.length === 0) {
       const pipeline = curatedPipelines.find((item) => pipelineMatches(item, request));
       if (pipeline) {
         const pipelinePlan = await this.planPipeline(request, pipeline, []);
         if (pipelinePlan) {
+          if (backendIgnoredWarning) {
+            pipelinePlan.warnings = [...pipelinePlan.warnings, backendIgnoredWarning];
+          }
           return pipelinePlan;
         }
       }
@@ -314,7 +328,7 @@ export class Planner {
       return {
         selectedPluginId: ranked[0].pluginId,
         explanation: ranked[0].explanation.join(" "),
-        warnings: ranked[0].verification.issues ?? [],
+        warnings: [...(ranked[0].verification.issues ?? []), ...(backendIgnoredWarning ? [backendIgnoredWarning] : [])],
         installNeeded: true,
         fallbacks: ranked.slice(1).map((candidate) => candidate.pluginId),
         steps: [],
@@ -340,7 +354,7 @@ export class Planner {
       return {
         selectedPluginId: selected.pluginId,
         explanation: selected.explanation.join(" "),
-        warnings: [],
+        warnings: backendIgnoredWarning ? [backendIgnoredWarning] : [],
         installNeeded: false,
         fallbacks: ranked
           .filter((candidate) => candidate.pluginId !== selected.pluginId)
@@ -360,6 +374,9 @@ export class Planner {
     if (pipeline) {
       const pipelinePlan = await this.planPipeline(request, pipeline, ranked);
       if (pipelinePlan) {
+        if (backendIgnoredWarning) {
+          pipelinePlan.warnings = [...pipelinePlan.warnings, backendIgnoredWarning];
+        }
         return pipelinePlan;
       }
     }

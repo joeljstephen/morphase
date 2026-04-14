@@ -78,7 +78,7 @@ export function formatJobResult(result: JobResult): string {
   if (result.status === "success") {
     const lines: string[] = [
       "",
-      `  ${green}✓${reset}  ${bold}Saved successfully${reset}`
+      `  ${green}✓${reset}  ${bold}${result.outputPaths.length > 0 ? "Saved successfully" : "Planned successfully (dry run)"}${reset}`
     ];
 
     for (const p of result.outputPaths) {

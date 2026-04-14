@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { deriveOperationOutputPath, deriveOutputPath, extensionForResourceKind, inferResourceKind, isUrl } from "@morphase/shared";
+import { deriveOperationOutputPath, deriveOutputPath, extensionForResourceKind, inferResourceKind, isUrl, resourceKinds } from "@morphase/shared";
 import type { JobRequest, PlanRequest, ResourceKind, Route } from "@morphase/shared";
 
 import { createError } from "../errors/morphase-error.js";
@@ -172,7 +172,7 @@ function assertSafeOutputPath(output: string, input: string | string[], force = 
 
 export function normalizeRequest(
   request: JobRequest,
-  defaults: { offlineOnly: boolean }
+  defaults: { offlineOnly: boolean; skipOverwriteCheck?: boolean }
 ): {
   route: Route;
   planRequest: Omit<PlanRequest, "route" | "platform" | "options" | "offlineOnly"> & {
@@ -183,7 +183,22 @@ export function normalizeRequest(
   const normalizedInput = normalizeInput(request.input);
   ensureLocalInputsExist(normalizedInput);
   validateMultiImageInput(normalizedInput, request.to);
-  const from = request.from ?? inferResourceKind(Array.isArray(normalizedInput) ? normalizedInput[0] : normalizedInput);
+  let from: ResourceKind | undefined;
+  if (request.from) {
+    if (!resourceKinds.includes(request.from)) {
+      throw createError({
+        code: "INVALID_INPUT",
+        message: `"${request.from}" is not a recognized resource kind. Valid kinds: ${resourceKinds.join(", ")}`,
+        suggestedFixes: [
+          "Use a specific format kind such as wav, mp3, mp4, pdf, etc.",
+          "Omit --from to let morphase auto-detect the input kind."
+        ]
+      });
+    }
+    from = request.from;
+  } else {
+    from = inferResourceKind(Array.isArray(normalizedInput) ? normalizedInput[0] : normalizedInput);
+  }
   const to = request.to;
 
   if (request.operation) {
@@ -206,7 +221,9 @@ export function normalizeRequest(
       });
     }
 
-    assertSafeOutputPath(output, normalizedInput, request.force);
+    if (!defaults.skipOverwriteCheck) {
+      assertSafeOutputPath(output, normalizedInput, request.force);
+    }
 
     return {
       route: {
@@ -236,7 +253,9 @@ export function normalizeRequest(
   }
 
   const output = resolveOutputPath(request.output, normalizedInput, to) ?? deriveOutputPath(normalizedInput, to);
-  assertSafeOutputPath(output, normalizedInput, request.force);
+  if (!defaults.skipOverwriteCheck) {
+    assertSafeOutputPath(output, normalizedInput, request.force);
+  }
 
   return {
     route: {

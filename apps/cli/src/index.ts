@@ -58,6 +58,12 @@ async function promptAndInstall(engine: MorphaseEngine, backendId: string): Prom
     return false;
   }
 
+  if (!process.stdin.isTTY) {
+    console.log(formatDoctorReport(report));
+    console.log(`\n  Install it with: ${command}`);
+    return false;
+  }
+
   console.log("");
   console.log(formatDoctorReport(report));
   console.log("");
@@ -202,6 +208,12 @@ async function printBackendHints(
     );
   }
 
+  if (!process.stdin.isTTY) {
+    throw new Error(
+      "Package-manager delegation requires an interactive terminal. Run the command manually: " + command
+    );
+  }
+
   const confirmation = await prompts({
     type: "confirm",
     name: "ok",
@@ -339,7 +351,8 @@ async function main() {
   const image = program.command("image").description("Image operations");
 
   collectCommonOptions(
-    image.command("compress <input>").option("-o, --output <path>", "Output path")
+    image.command("compress <input>").description("Compress an image file")
+      .option("-o, --output <path>", "Output path")
   )
     .action(async (input, options) => {
       try {
@@ -362,7 +375,8 @@ async function main() {
   const video = program.command("video").description("Video operations");
 
   collectCommonOptions(
-    video.command("compress <input>").option("-o, --output <path>", "Output path")
+    video.command("compress <input>").description("Compress a video file")
+      .option("-o, --output <path>", "Output path")
   )
     .action(async (input, options) => {
       try {

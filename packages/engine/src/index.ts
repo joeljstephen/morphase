@@ -58,7 +58,8 @@ export class MorphaseEngine {
 
   async explain(request: JobRequest): Promise<PlannedExecution> {
     const normalized = normalizeRequest(request, {
-      offlineOnly: this.config.offlineOnly
+      offlineOnly: this.config.offlineOnly,
+      skipOverwriteCheck: true
     });
     const planRequest = toPlanRequest(request, normalized, this.config.offlineOnly);
     return this.planner.plan(planRequest, request.backendPreference);

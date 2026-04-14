@@ -616,6 +616,15 @@ export class Executor {
 
       logs.push(this.logger.executor(`running ${step.plan.command} ${step.plan.args.join(" ")}`));
 
+      let dirSnapshot: Set<string> | null = null;
+      if (step.plan.collectFromDir) {
+        dirSnapshot = new Set();
+        try {
+          const existing = await fs.readdir(step.plan.collectFromDir);
+          for (const entry of existing) dirSnapshot.add(entry);
+        } catch {}
+      }
+
       try {
         const result = await execa(step.plan.command, step.plan.args, {
           cwd: step.plan.cwd,
@@ -658,10 +667,11 @@ export class Executor {
           outputPaths.add(output);
         }
 
-        if (step.plan.collectFromDir) {
+        if (step.plan.collectFromDir && dirSnapshot !== null) {
           try {
             const entries = await fs.readdir(step.plan.collectFromDir);
             for (const entry of entries) {
+              if (dirSnapshot.has(entry)) continue;
               const fullPath = path.join(step.plan.collectFromDir, entry);
               try {
                 const stat = await fs.stat(fullPath);
