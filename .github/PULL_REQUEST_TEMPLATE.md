@@ -1,6 +1,6 @@
 ## Summary
 
-Brief description of the change.
+Brief description of the change and why it's needed.
 
 ## Type
 

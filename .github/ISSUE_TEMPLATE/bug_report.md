@@ -4,7 +4,7 @@ about: Report a bug in Morphase
 labels: bug
 ---
 
-**Morphase version:**
+**Morphase version:** (run `morphase --version`)
 
 **OS and package manager:**
 
@@ -18,7 +18,7 @@ morphase ...
 
 **What you expected:**
 
-**Output of `morphase doctor` (if relevant):**
+**Output of `morphase doctor`:**
 
 <details>
 <pre>

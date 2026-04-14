@@ -6,5 +6,5 @@ Official support is intentionally narrow:
 - Windows with WinGet
 - Ubuntu/Debian with `apt-get`
 
-Everything else is best effort. This matches the maintenance policy in the spec and keeps backend install/update guidance concrete.
+Everything else is best effort. This keeps backend install/update guidance concrete and testable.
 

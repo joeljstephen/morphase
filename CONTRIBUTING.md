@@ -5,7 +5,7 @@ Thank you for your interest in contributing.
 ## Setup
 
 ```bash
-git clone https://github.com/your-org/morphase.git
+git clone https://github.com/anomalyco/morphase.git
 cd morphase
 pnpm install
 pnpm build
@@ -19,6 +19,7 @@ pnpm dev          # Run CLI in dev mode
 pnpm build        # Build all packages
 pnpm typecheck    # TypeScript check
 pnpm test         # Run tests
+pnpm test:watch   # Run tests in watch mode
 ```
 
 ## Architecture
@@ -50,7 +51,7 @@ Use GitHub Issues. Include:
 
 ## Adding a Plugin
 
-See [docs/plugin-authoring.md](docs/plugin-authoring.md) for the plugin contract and conventions.
+See [docs/plugin-authoring.md](docs/plugin-authoring.md) for the plugin contract, SDK helpers, and conventions.
 
 ## Code of Conduct
 

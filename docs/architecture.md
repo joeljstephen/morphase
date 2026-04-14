@@ -94,7 +94,6 @@ morphase/
       qpdf/                 # PDF merge/split/optimize
       trafilatura/          # URL-to-markdown/text extraction
       markitdown/           # File-to-markdown extraction
-      trafilatura/          # URL-to-markdown/text extraction
       ytdlp/                # YouTube/media URL download
       whisper/              # Local transcription
       summarize/            # YouTube transcript extraction
@@ -104,7 +103,7 @@ morphase/
       poppler/              # PDF to image rendering + embedded image extraction
 
   docs/                     # Architecture, route matrix, support matrix, plugin authoring
-  tests/                    # Planner, plugin, and normalize-request tests
+  tests/                    # Planner, plugin, normalize-request, server, and route tests
 ```
 
 ---
@@ -417,17 +416,17 @@ All 14 plugins are imported and registered in `packages/plugins/src/index.ts` as
 | Plugin | ID | Priority | Capabilities | External Tool |
 |--------|-----|----------|-------------|---------------|
 | Pandoc | `pandoc` | 95 | md→pdf, md→docx, md→txt, html→pdf, html→md, html→docx | `pandoc` |
-| LibreOffice | `libreoffice` | — | docx/pptx/xlsx/odt/ods/odp→pdf | `soffice` |
+| LibreOffice | `libreoffice` | 100 | docx/pptx/xlsx/odt/ods/odp→pdf, pdf→docx | `soffice` |
 | FFmpeg | `ffmpeg` | 100 | mp4→mp3, mov→mp4, mkv→mp4, wav→mp3, mp3→wav, video compress | `ffmpeg` |
-| ImageMagick | `imagemagick` | — | jpg↔png, webp→png/jpg, heic→jpg/png | `magick`/`convert` |
+| ImageMagick | `imagemagick` | 100 | jpg↔png, webp→png/jpg, heic→jpg/png | `magick`/`convert` |
 | qpdf | `qpdf` | 100 | pdf merge/split/optimize | `qpdf` |
 | Trafilatura | `trafilatura` | 90 | url→markdown, url→txt | `trafilatura` |
-| MarkItDown | `markitdown` | — | pdf→markdown, office→markdown | `markitdown` |
+| MarkItDown | `markitdown` | 80 | pdf/docx/pptx/xlsx/html→markdown | `markitdown` |
 | yt-dlp | `ytdlp` | 60 | youtube→mp4/mp3/transcript/subtitle, media-url→mp4/mp3/transcript | `yt-dlp` |
-| Whisper | `whisper` | — | audio/video→transcript | `whisper` |
+| Whisper | `whisper` | 65 | mp3/wav/mp4/mov/mkv→transcript | `whisper` |
 | summarize | `summarize` | 70 | youtube-url→transcript, url→markdown | `summarize` |
-| jpegoptim | `jpegoptim` | — | jpg compress | `jpegoptim` |
-| optipng | `optipng` | — | png compress | `optipng` |
+| jpegoptim | `jpegoptim` | 100 | jpg compress | `jpegoptim` |
+| optipng | `optipng` | 95 | png compress | `optipng` |
 | img2pdf | `img2pdf` | 100 | jpg→pdf, png→pdf (multi-image support) | `img2pdf` |
 | Poppler | `poppler` | 100 | pdf→png, pdf→jpg, pdf extract-images | `pdftocairo` / `pdfimages` |
 
@@ -553,7 +552,11 @@ On startup:
 
 ### Common Options
 
-All conversion commands support: `--from`, `--backend`, `--offline`, `--debug`, `--dry-run`.
+All conversion commands support: `--from`, `--backend`, `--offline`, `--debug`, `--dry-run`, `--force`.
+
+The `fetch` command also supports: `--format` (transcript format: text/markdown), `--quality` (best/high/medium/low).
+
+The `serve` command also supports: `--host`, `--port`, `--allow-remote`.
 
 ### Interactive Wizard (`src/wizard.ts`)
 
@@ -615,7 +618,9 @@ Tests live in the root `tests/` directory and use **Vitest**.
 | `tests/planner.test.ts` | Planner scoring, candidate selection, route preferences, pipeline fallback |
 | `tests/plugins.test.ts` | Plugin metadata, capability declarations, detect/verify behavior |
 | `tests/normalize-request.test.ts` | Request normalization, path resolution, resource kind inference |
+| `tests/server.test.ts` | Server endpoint safety, request validation, response structure |
 | `tests/youtube.test.ts` | YouTube URL detection and route handling |
+| `tests/image-pdf.test.ts` | Image-to-PDF and PDF-to-image route handling |
 
 ### Build & Test Commands
 
@@ -659,7 +664,7 @@ Error codes include: `INPUT_NOT_FOUND`, `INVALID_INPUT`, `UNSUPPORTED_ROUTE`, `B
 - Local-first by default — no network requirement for core routes
 - Server binds to localhost only by default
 - No silent remote upload
-- Network-backed plugins (Jina, yt-dlp) are clearly disclosed
+- Network-backed plugins (yt-dlp, trafilatura) are clearly disclosed
 - Plugins do not mutate system state without explicit user confirmation
 - `--debug` and `--keep-temp` are opt-in for troubleshooting
 - Commands and args are passed separately to `execa` — no shell injection

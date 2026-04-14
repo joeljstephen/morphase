@@ -26,9 +26,13 @@ Examples of unacceptable behavior:
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by contacting the project team. All complaints will be reviewed and
-investigated and will result in a response that is deemed necessary and
-appropriate.
+reported by opening a GitHub issue or contacting the project maintainers
+directly. All complaints will be reviewed and investigated and will result in a
+response that is deemed necessary and appropriate.
 
 Project maintainers who do not follow or enforce the Code of Conduct in good
 faith may face temporary or permanent repercussions.
+
+## Attribution
+
+This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org/), version 2.1.

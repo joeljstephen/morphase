@@ -36,6 +36,13 @@ morphase convert README.md README.docx
 morphase convert photo.heic photo.jpg
 morphase convert recording.wav recording.mp3
 
+# Convert images to PDF
+morphase convert photo.jpg photo.pdf
+morphase convert page1.jpg page2.jpg -o document.pdf
+
+# Convert PDF pages to images
+morphase convert report.pdf report.png
+
 # Extract content
 morphase extract paper.pdf --to markdown
 morphase extract https://example.com --to markdown
@@ -52,6 +59,7 @@ morphase video compress movie.mov
 morphase pdf merge chapter1.pdf chapter2.pdf chapter3.pdf -o book.pdf
 morphase pdf split report.pdf --pages 1-3,5 -o excerpt.pdf
 morphase pdf optimize large.pdf -o smaller.pdf
+morphase pdf extract-images document.pdf
 
 # Diagnose your setup
 morphase doctor
@@ -91,10 +99,15 @@ All commands below are stable and tested:
 | `morphase pdf merge <inputs...> -o <out>` | Merge multiple PDFs |
 | `morphase pdf split <input> --pages <range> -o <out>` | Extract pages from a PDF |
 | `morphase pdf optimize <input> -o <out>` | Optimize/reduce PDF file size |
+| `morphase pdf extract-images <input>` | Extract embedded images from a PDF |
 | `morphase doctor` | Inspect health of all backends |
-| `morphase backend verify <id>` | Verify a specific backend |
 | `morphase backend list` | Show installed/uninstalled backends |
+| `morphase backend status` | Detailed backend status |
+| `morphase backend verify <id>` | Verify a specific backend |
+| `morphase backend install <id>` | Show install hints for a backend |
+| `morphase backend update <id>` | Show update hints for a backend |
 | `morphase explain <input> --to <format>` | Show the plan without executing |
+| `morphase serve` | Start local HTTP API server (experimental) |
 
 ### Common Options
 
@@ -109,29 +122,50 @@ All conversion commands accept:
 | `--dry-run` | Plan the job without executing it |
 | `--force` | Overwrite an existing output path |
 
-## Stable vs. Experimental
+### Fetch Options
+
+The `fetch` command also accepts:
+
+| Flag | Description |
+|------|-------------|
+| `--format <format>` | Transcript format: `text` or `markdown` |
+| `--quality <quality>` | Quality level: `best`, `high`, `medium`, `low` |
+
+### Serve Options
+
+The `serve` command accepts:
+
+| Flag | Description |
+|------|-------------|
+| `--host <addr>` | Bind address (default: `127.0.0.1`) |
+| `--port <port>` | Bind port (default: `3210`) |
+| `--allow-remote` | Allow non-localhost connections |
+
+## Plugins
 
 ### Stable Plugins
 
 | Plugin | ID | Handles | External Tool |
 |--------|-----|---------|---------------|
-| Pandoc | `pandoc` | Markdown/HTML → PDF, DOCX, TXT | `pandoc` |
-| LibreOffice | `libreoffice` | DOCX/PPTX/XLSX/ODF → PDF | `soffice` |
-| FFmpeg | `ffmpeg` | Audio/video conversion, video compression | `ffmpeg` |
+| Pandoc | `pandoc` | Markdown/HTML → PDF, DOCX, TXT; HTML → Markdown | `pandoc` |
+| LibreOffice | `libreoffice` | DOCX/PPTX/XLSX/ODF → PDF; PDF → DOCX | `soffice` |
+| FFmpeg | `ffmpeg` | Audio/video conversion, video compression (H.265) | `ffmpeg` |
 | ImageMagick | `imagemagick` | Image format conversion (JPG, PNG, WebP, HEIC) | `magick` |
 | qpdf | `qpdf` | PDF merge, split, optimize | `qpdf` |
 | Trafilatura | `trafilatura` | Web page → Markdown/text extraction | `trafilatura` |
 | yt-dlp | `ytdlp` | YouTube/media site downloads | `yt-dlp` |
+| img2pdf | `img2pdf` | Image(s) → PDF (lossless, multi-image support) | `img2pdf` |
+| Poppler | `poppler` | PDF → PNG/JPG rendering, embedded image extraction | `pdftocairo` / `pdfimages` |
 
 ### Experimental Plugins
 
 | Plugin | ID | Handles | External Tool |
 |--------|-----|---------|---------------|
 | Whisper | `whisper` | Audio/video → transcript (local transcription) | `whisper` |
-| MarkItDown | `markitdown` | PDF/Office files → Markdown | `markitdown` |
+| MarkItDown | `markitdown` | PDF/DOCX/PPTX/XLSX/HTML → Markdown | `markitdown` |
 | jpegoptim | `jpegoptim` | JPEG compression | `jpegoptim` |
 | optipng | `optipng` | PNG compression | `optipng` |
-| summarize | `summarize` | YouTube transcript extraction | `summarize` |
+| summarize | `summarize` | YouTube transcript extraction, URL → Markdown | `summarize` |
 
 Experimental plugins are functional but may have rough edges or narrower platform support.
 
@@ -160,6 +194,9 @@ morphase doctor
 
 # Quick list of what's installed vs. missing
 morphase backend list
+
+# Detailed backend status
+morphase backend status
 
 # Verify a specific backend in detail
 morphase backend verify ffmpeg
@@ -203,22 +240,32 @@ Common conversion routes and their preferred backends:
 |-------|---------|---------|------------|
 | Markdown → PDF | Pandoc | High | Yes |
 | Markdown → DOCX | Pandoc | High | Yes |
+| Markdown → TXT | Pandoc | High | Yes |
 | HTML → PDF | Pandoc | Medium | Yes |
 | HTML → Markdown | Pandoc | High | Yes |
-| DOCX/PPTX/XLSX → PDF | LibreOffice | High | Yes |
+| HTML → DOCX | Pandoc | Medium | Yes |
+| DOCX/PPTX/XLSX/ODF → PDF | LibreOffice | High | Yes |
+| PDF → DOCX | LibreOffice | Medium | Yes |
 | PDF → Markdown | MarkItDown | Medium | Yes |
-| URL → Markdown | Trafilatura | High | No |
+| PDF → PNG/JPG | Poppler | High | Yes |
+| PDF extract-images | Poppler | Medium | Yes |
+| URL → Markdown | Trafilatura / summarize | High | No |
+| URL → TXT | Trafilatura | High | No |
 | JPG ↔ PNG | ImageMagick | High | Yes |
-| HEIC → JPG/PNG | ImageMagick | High | Yes |
+| WebP → PNG/JPG | ImageMagick | High | Yes |
+| HEIC → JPG/PNG | ImageMagick | Best effort | Yes |
+| JPG/PNG → PDF | img2pdf | High | Yes |
 | MP4 → MP3 | FFmpeg | Medium | Yes |
-| MOV → MP4 | FFmpeg | Medium | Yes |
-| WAV → MP3 | FFmpeg | Medium | Yes |
+| MOV/MKV → MP4 | FFmpeg | Medium | Yes |
+| WAV → MP3 / MP3 → WAV | FFmpeg | Medium/High | Yes |
 | PDF merge/split/optimize | qpdf | High | Yes |
 | YouTube → MP4/MP3 | yt-dlp | Medium | No |
 | YouTube → transcript | summarize / yt-dlp | High/Medium | No |
 | Media site download | yt-dlp | Medium | No |
 
-Multi-step pipelines handle routes with no direct backend (e.g. Markdown → PDF chains Pandoc and LibreOffice).
+Multi-step pipelines handle routes with no direct backend (e.g. PDF → TXT chains MarkItDown into Pandoc).
+
+See [docs/route-matrix.md](docs/route-matrix.md) for the complete route matrix with all experimental routes and install instructions.
 
 ## Configuration
 
@@ -284,14 +331,16 @@ morphase/
     shared/                 # Types, schemas, constants, utilities
     engine/                 # Core routing, planning, execution engine
     plugin-sdk/             # Plugin authoring helpers
-    plugins/                # All builtin backend plugins
+    plugins/                # All builtin backend plugins (14 plugins)
   docs/                     # Architecture, route matrix, support matrix
-  tests/                    # Planner, plugin, and normalize-request tests
+  tests/                    # Planner, plugin, normalize-request, server tests
 ```
 
 ### Contributing
 
-Contributions are welcome. Good entry points:
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and guidelines.
+
+Good entry points:
 
 - **New plugins** — implement the `MorphasePlugin` interface in `packages/plugins/`. Use `definePlugin()` from `@morphase/plugin-sdk` for type safety.
 - **Bug fixes** — check the issue tracker for known bugs or run `morphase doctor` to find backend-specific issues.
