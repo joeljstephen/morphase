@@ -1,13 +1,33 @@
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
-import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
+import { definePlugin } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "brew install qpdf",
-  "winget install QPDF.QPDF",
-  "sudo apt-get install qpdf"
-);
+const installStrategies = [
+  strategyForManager("brew", "brew install qpdf"),
+  strategyForManager("winget", "winget install QPDF.QPDF"),
+  strategyForManager("apt", "sudo apt-get install qpdf"),
+  strategyForManager("dnf", "sudo dnf install qpdf"),
+  strategyForManager("yum", "sudo yum install qpdf"),
+  strategyForManager("pacman", "sudo pacman -S qpdf"),
+  strategyForManager("zypper", "sudo zypper install qpdf"),
+  manualStrategy("Install qpdf manually", {
+    url: "https://qpdf.readthedocs.io/en/stable/download.html"
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("brew", "brew upgrade qpdf"),
+  strategyForManager("winget", "winget upgrade QPDF.QPDF"),
+  strategyForManager("apt", "sudo apt-get install --only-upgrade qpdf"),
+  strategyForManager("dnf", "sudo dnf upgrade qpdf"),
+  strategyForManager("yum", "sudo yum update qpdf"),
+  strategyForManager("pacman", "sudo pacman -Syu qpdf"),
+  strategyForManager("zypper", "sudo zypper update qpdf"),
+  manualStrategy("Update qpdf manually", {
+    url: "https://qpdf.readthedocs.io/en/stable/download.html"
+  })
+];
 
 export const qpdfPlugin: MorphasePlugin = definePlugin({
   id: "qpdf",
@@ -56,15 +76,11 @@ export const qpdfPlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["qpdf"], ["--version"], "11.0.0");
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "brew", command: "brew upgrade qpdf" },
-      windows: { manager: "winget", command: "winget upgrade QPDF.QPDF" },
-      linux: { manager: "apt-get", command: "sudo apt-get install --only-upgrade qpdf" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (request.route.kind !== "operation" || !request.output) {
@@ -105,4 +121,3 @@ export const qpdfPlugin: MorphasePlugin = definePlugin({
     return `qpdf is the preferred PDF-native backend for ${request.operation}.`;
   }
 });
-

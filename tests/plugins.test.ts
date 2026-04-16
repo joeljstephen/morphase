@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { libreOfficePlugin, markitdownPlugin, pandocPlugin, trafilaturaPlugin, summarizePlugin, ytdlpPlugin } from "../packages/plugins/src/index.js";
+import { resolveInstallHints, type RuntimeEnvironment } from "../packages/shared/src/index.js";
+
+const macosEnvironment: RuntimeEnvironment = {
+  os: "macos",
+  packageManagers: ["brew", "pipx", "pip", "npm"]
+};
 
 describe("builtin plugins", () => {
   it("builds a pandoc plan for markdown to docx", async () => {
@@ -193,9 +199,10 @@ describe("summarize plugin", () => {
   });
 
   it("returns install hints for macOS", () => {
-    const hints = summarizePlugin.getInstallHints("macos");
+    const hints = resolveInstallHints(summarizePlugin.getInstallStrategies(), macosEnvironment);
     expect(hints.length).toBeGreaterThan(0);
-    expect(hints[0]?.command).toContain("npm");
+    expect(hints[0]?.kind).toBe("package-manager");
+    expect(hints[0]?.command).toBeTruthy();
   });
 });
 

@@ -1,13 +1,33 @@
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
-import type { MorphasePlugin, PlanRequest, Platform, Quality, ResourceKind } from "@morphase/shared";
+import { definePlugin } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, Quality, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, packageHints, supportsImageMagickFormat, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, supportsImageMagickFormat, verifyBinary } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "brew install imagemagick",
-  "winget install ImageMagick.ImageMagick",
-  "sudo apt-get install imagemagick"
-);
+const installStrategies = [
+  strategyForManager("brew", "brew install imagemagick"),
+  strategyForManager("winget", "winget install ImageMagick.ImageMagick"),
+  strategyForManager("apt", "sudo apt-get install imagemagick"),
+  strategyForManager("dnf", "sudo dnf install ImageMagick"),
+  strategyForManager("yum", "sudo yum install ImageMagick"),
+  strategyForManager("pacman", "sudo pacman -S imagemagick"),
+  strategyForManager("zypper", "sudo zypper install ImageMagick"),
+  manualStrategy("Install ImageMagick manually", {
+    url: "https://imagemagick.org/script/download.php"
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("brew", "brew upgrade imagemagick"),
+  strategyForManager("winget", "winget upgrade ImageMagick.ImageMagick"),
+  strategyForManager("apt", "sudo apt-get install --only-upgrade imagemagick"),
+  strategyForManager("dnf", "sudo dnf upgrade ImageMagick"),
+  strategyForManager("yum", "sudo yum update ImageMagick"),
+  strategyForManager("pacman", "sudo pacman -Syu imagemagick"),
+  strategyForManager("zypper", "sudo zypper update ImageMagick"),
+  manualStrategy("Update ImageMagick manually", {
+    url: "https://imagemagick.org/script/download.php"
+  })
+];
 
 async function selectedImageCommand(): Promise<string> {
   const detection = await detectBinary(["magick", "convert"], ["-version"]);
@@ -69,15 +89,11 @@ export const imageMagickPlugin: MorphasePlugin = definePlugin({
       issues: []
     };
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "brew", command: "brew upgrade imagemagick" },
-      windows: { manager: "winget", command: "winget upgrade ImageMagick.ImageMagick" },
-      linux: { manager: "apt-get", command: "sudo apt-get install --only-upgrade imagemagick" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (request.route.kind !== "conversion" || typeof request.input !== "string" || !request.output) {

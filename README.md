@@ -22,13 +22,14 @@ Morphase itself stays small. The heavy lifting is done by external tools like FF
 
 ## Install
 
-Install from npm after the package is published:
-
 ```bash
 npm install -g morphase
 ```
 
-For now, run Morphase from source:
+You'll also need at least one backend installed on your system (FFmpeg, Pandoc, LibreOffice, etc.) depending on which routes you want. Run `morphase doctor` to see what's detected.
+
+<details>
+<summary>Running from source</summary>
 
 ```bash
 git clone https://github.com/joeljstephen/morphase.git
@@ -42,7 +43,7 @@ pnpm dev -- --help
 node apps/cli/dist/index.js --help
 ```
 
-You'll also need at least one backend installed on your system (FFmpeg, Pandoc, LibreOffice, etc.) depending on which routes you want. Run `pnpm dev -- doctor` to see what's detected.
+</details>
 
 ## Quick start
 
@@ -105,15 +106,18 @@ See [docs/architecture.md](docs/architecture.md) for a deeper walkthrough.
 
 ## Supported platforms
 
-Official support is intentionally narrow so install and update hints stay concrete and testable:
+Morphase can run broadly anywhere the required backend binaries are installed. The install-guidance layer is environment-aware and prefers detected package managers when it can do so honestly:
 
-| OS              | Package manager | Example                              |
-| --------------- | --------------- | ------------------------------------ |
-| macOS           | Homebrew        | `brew install ffmpeg`                |
-| Windows         | WinGet          | `winget install Gyan.FFmpeg`         |
-| Ubuntu / Debian | apt-get         | `sudo apt-get install ffmpeg`        |
+| Environment             | Preferred hint examples                        |
+| ----------------------- | ---------------------------------------------- |
+| macOS with Homebrew     | `brew install ffmpeg`                          |
+| Windows with WinGet     | `winget install Gyan.FFmpeg`                   |
+| Ubuntu / Debian         | `sudo apt-get install ffmpeg`                  |
+| Fedora / RHEL           | `sudo dnf install ffmpeg` or `sudo yum ...`    |
+| Arch / Manjaro          | `sudo pacman -S ffmpeg`                        |
+| openSUSE                | `sudo zypper install ffmpeg`                   |
 
-Morphase detects your OS and package manager and tailors install hints accordingly. Other platforms may work but are best-effort.
+If Morphase does not detect a compatible package manager for a backend, it falls back to manual guidance instead of printing an obviously wrong command. Official support is still intentionally narrower than theoretical runtime support, so unsupported environments may still require manual dependency installation.
 
 ## Documentation
 

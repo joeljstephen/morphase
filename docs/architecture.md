@@ -194,7 +194,13 @@ Every operation is tracked as a job with a UUID in an in-memory `Map<string, Job
 
 ### Platform
 
-Isolates OS-specific behavior: `detectPlatform()` (macos / windows / linux), `detectPackageManager()` (brew / winget / apt-get / manual), and `homeDirectory()` for config resolution.
+Isolates OS-specific behavior:
+
+- `detectPlatform()` — coarse OS detection (`macos` / `windows` / `linux`)
+- `detectLinuxDistro()` — distro-family detection from `/etc/os-release`
+- `detectPackageManagers()` — detects available package managers in priority order for the environment
+- `detectRuntimeEnvironment()` — combines OS, distro, and detected package managers into a single runtime model
+- `homeDirectory()` — config resolution helper
 
 ### Configuration
 
@@ -227,8 +233,8 @@ interface MorphasePlugin {
   capabilities(): Capability[];
   detect(platform: Platform): Promise<DetectionResult>;
   verify(platform: Platform): Promise<VerificationResult>;
-  getInstallHints(platform: Platform): InstallHint[];
-  getUpdateHints?(platform: Platform): InstallHint[];
+  getInstallStrategies(): InstallStrategy[];
+  getUpdateStrategies?(): InstallStrategy[];
   plan(request: PlanRequest): Promise<ExecutionPlan | null>;
   explain(request: PlanRequest): Promise<string>;
 }
@@ -277,15 +283,18 @@ Error codes include: `INVALID_INPUT`, `OUTPUT_EXISTS`, `UNSUPPORTED_ROUTE`, `BAC
 
 All errors are thrown as `MorphaseRuntimeError`, wrapping a structured `MorphaseError` with `code`, `message`, `likelyCause`, `suggestedFixes`, `backendId`, and raw stdout/stderr for debugging.
 
-Official platform support is narrow:
+Official install guidance is narrow but the runtime is broader:
 
-| OS              | Package manager |
-| --------------- | --------------- |
-| macOS           | Homebrew        |
-| Windows         | WinGet          |
-| Ubuntu / Debian | apt-get         |
+| Environment     | Best supported package managers |
+| --------------- | -------------------------------- |
+| macOS           | Homebrew                         |
+| Windows         | WinGet                           |
+| Ubuntu / Debian | apt                               |
+| Fedora / RHEL   | dnf / yum                        |
+| Arch / Manjaro  | pacman                           |
+| openSUSE        | zypper                           |
 
-Other platforms may work but are best-effort. Install and update hints are only guaranteed for the three above.
+Other platforms may work but are best-effort. Morphase now avoids obviously wrong install commands by resolving plugin install strategies against the detected runtime environment and falling back to manual guidance when no compatible strategy matches.
 
 ---
 

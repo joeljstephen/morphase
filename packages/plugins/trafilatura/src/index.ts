@@ -1,14 +1,35 @@
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
-import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
+import { definePlugin } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "brew install trafilatura",
-  "winget install Python.Python.3 && pip install trafilatura",
-  "sudo apt-get install python3-pip && pip install trafilatura",
-  ["Trafilatura is commonly installed via pip when OS packages are unavailable."]
-);
+const installStrategies = [
+  strategyForManager("pipx", "pipx install trafilatura", {
+    notes: ["Trafilatura is commonly installed via pip or pipx."]
+  }),
+  strategyForManager("pip", "pip install trafilatura", {
+    os: ["macos", "linux"],
+    notes: ["Trafilatura is commonly installed via pip or pipx."]
+  }),
+  strategyForManager("pip", "py -m pip install trafilatura", {
+    os: ["windows"],
+    notes: ["Trafilatura is commonly installed via pip or pipx."]
+  }),
+  strategyForManager("brew", "brew install trafilatura"),
+  manualStrategy("Install Python 3 and Trafilatura manually", {
+    notes: ["Ensure the trafilatura executable is on PATH after installation."]
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("pipx", "pipx upgrade trafilatura"),
+  strategyForManager("pip", "pip install --upgrade trafilatura", { os: ["macos", "linux"] }),
+  strategyForManager("pip", "py -m pip install --upgrade trafilatura", { os: ["windows"] }),
+  strategyForManager("brew", "brew upgrade trafilatura"),
+  manualStrategy("Update Trafilatura manually", {
+    notes: ["Use your Python package manager to update Trafilatura and keep it on PATH."]
+  })
+];
 
 export const trafilaturaPlugin: MorphasePlugin = definePlugin({
   id: "trafilatura",
@@ -48,15 +69,11 @@ export const trafilaturaPlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["trafilatura"], ["--version"], "1.9.0");
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "brew", command: "brew upgrade trafilatura" },
-      windows: { manager: "manual", command: "pip install --upgrade trafilatura" },
-      linux: { manager: "manual", command: "pip install --upgrade trafilatura" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (request.route.kind !== "conversion" || typeof request.input !== "string" || !request.output) {
@@ -78,4 +95,3 @@ export const trafilaturaPlugin: MorphasePlugin = definePlugin({
     return `Trafilatura is the preferred local-first extractor for ${request.from} to ${request.to}.`;
   }
 });
-

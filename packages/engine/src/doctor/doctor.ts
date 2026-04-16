@@ -1,7 +1,11 @@
-import { compareSemver, type BackendDoctorReport, type MorphasePlugin, type Platform } from "@morphase/shared";
+import { compareSemver, resolveInstallHints, type BackendDoctorReport, type MorphasePlugin, type Platform, type RuntimeEnvironment } from "@morphase/shared";
 
 export class Doctor {
-  async inspectBackend(plugin: MorphasePlugin, platform: Platform): Promise<BackendDoctorReport> {
+  async inspectBackend(
+    plugin: MorphasePlugin,
+    platform: Platform,
+    runtimeEnvironment: RuntimeEnvironment
+  ): Promise<BackendDoctorReport> {
     const detection = await plugin.detect(platform);
     const verification = detection.installed
       ? await plugin.verify(platform)
@@ -15,6 +19,7 @@ export class Doctor {
     return {
       id: plugin.id,
       name: plugin.name,
+      runtimeEnvironment,
       installed: detection.installed,
       version: detection.version,
       minimumVersion: plugin.minimumVersion,
@@ -23,14 +28,17 @@ export class Doctor {
       verified: verification.ok,
       issues: verification.issues ?? [],
       warnings: verification.warnings ?? [],
-      installHints: plugin.getInstallHints(platform),
-      updateHints: plugin.getUpdateHints?.(platform) ?? plugin.getInstallHints(platform),
+      installHints: resolveInstallHints(plugin.getInstallStrategies(), runtimeEnvironment),
+      updateHints: resolveInstallHints(plugin.getUpdateStrategies?.() ?? plugin.getInstallStrategies(), runtimeEnvironment),
       commonProblems: plugin.commonProblems ?? []
     };
   }
 
-  async inspectAll(plugins: MorphasePlugin[], platform: Platform): Promise<BackendDoctorReport[]> {
-    return Promise.all(plugins.map((plugin) => this.inspectBackend(plugin, platform)));
+  async inspectAll(
+    plugins: MorphasePlugin[],
+    platform: Platform,
+    runtimeEnvironment: RuntimeEnvironment
+  ): Promise<BackendDoctorReport[]> {
+    return Promise.all(plugins.map((plugin) => this.inspectBackend(plugin, platform, runtimeEnvironment)));
   }
 }
-

@@ -11,7 +11,7 @@ Not every plugin belongs in the main repo. As a rough guide:
 **A plugin is a good fit for this repo if it:**
 
 - Wraps a widely available, stable, open-source tool (FFmpeg, Pandoc, ImageMagick, etc.).
-- Is installable through at least one of the officially supported package managers (Homebrew, WinGet, apt-get).
+- Is installable through at least one common package manager or has a clear manual install path.
 - Covers a route the core Morphase audience will actually use.
 - Has predictable output and does not require service accounts, API keys, or network configuration to function.
 - Is reasonably behaved across macOS, Windows, and Linux, or clearly scopes itself to a subset.
@@ -21,7 +21,7 @@ Not every plugin belongs in the main repo. As a rough guide:
 - Talks to a paid or proprietary service.
 - Requires user credentials, API keys, or OAuth.
 - Targets a niche format or workflow most users won't need.
-- Has heavy or platform-specific install requirements that can't be documented with a one-line install hint.
+- Has heavy or platform-specific install requirements that can't be expressed as a few install strategies plus a clear manual fallback.
 - Is experimental or changes often.
 
 Community plugins will eventually be loadable out-of-tree via the plugin SDK. In the meantime, if you're unsure whether your plugin fits the main repo, open a discussion or draft PR and we'll figure it out together.
@@ -42,8 +42,8 @@ interface MorphasePlugin {
   capabilities(): Capability[];
   detect(platform: Platform): Promise<DetectionResult>;
   verify(platform: Platform): Promise<VerificationResult>;
-  getInstallHints(platform: Platform): InstallHint[];
-  getUpdateHints?(platform: Platform): InstallHint[];
+  getInstallStrategies(): InstallStrategy[];
+  getUpdateStrategies?(): InstallStrategy[];
   plan(request: PlanRequest): Promise<ExecutionPlan | null>;
   explain(request: PlanRequest): Promise<string>;
 }
@@ -99,18 +99,21 @@ A deeper health check beyond detection:
 
 Good uses: checking delegate support (e.g. ImageMagick's HEIC/WebP delegates), dependency availability (e.g. yt-dlp needing ffmpeg for MP3), or version-specific bugs.
 
-#### `getInstallHints(platform)` / `getUpdateHints(platform)`
+#### `getInstallStrategies()` / `getUpdateStrategies()`
 
-Per-platform install instructions. Use `packageHints()`:
+Return install strategies rather than one hardcoded command per OS. Morphase resolves these against the detected runtime environment and falls back to a manual strategy when no compatible package manager is available.
 
 ```ts
-getInstallHints(platform) {
-  return packageHints(
-    platform,
-    { command: "brew install ffmpeg" },
-    { command: "winget install Gyan.FFmpeg" },
-    { command: "sudo apt-get install ffmpeg" },
-  );
+getInstallStrategies() {
+  return [
+    packageManagerStrategy("brew", "brew install ffmpeg"),
+    packageManagerStrategy("winget", "winget install Gyan.FFmpeg"),
+    packageManagerStrategy("apt", "sudo apt-get install ffmpeg"),
+    packageManagerStrategy("dnf", "sudo dnf install ffmpeg"),
+    manualInstallStrategy("Install FFmpeg manually", {
+      url: "https://www.ffmpeg.org/download.html",
+    }),
+  ];
 }
 ```
 
@@ -150,14 +153,16 @@ Returns a human-readable explanation of why this plugin was chosen and what it w
 
 - **`definePlugin(plugin)`** — Identity function that enforces the `MorphasePlugin` type at compile time.
 - **`detectFirstAvailableCommand(commands, versionArgs)`** — Tries multiple command names and returns the first that responds.
-- **`installHintByPlatform(platform, hints)`** — Selects the correct hint record for the current OS.
+- **`packageManagerStrategy(manager, command, options?)`** — Creates a package-manager-backed install strategy.
+- **`manualInstallStrategy(label, options?)`** — Creates a manual install fallback strategy.
 
 ## Shared plugin helpers
 
 `packages/plugins/src/helpers.ts` adds conveniences used by most builtin plugins:
 
 - **`detectBinary(commands, versionArgs)`** — `detectFirstAvailableCommand` plus semver parsing.
-- **`packageHints(macos, windows, linux, notes?)`** — Per-platform install hint record.
+- **`strategyForManager(manager, command, options?)`** — Convenience wrapper for builtin package-manager strategies.
+- **`manualStrategy(label, options?)`** — Convenience wrapper for builtin manual strategies.
 - **`verifyBinary(commands, args)`** — Simple binary verification.
 - **`libreOfficeConvert(input, output, format)`** — Builds a LibreOffice execution plan with output mapping.
 - **`whisperGeneratedTranscript(input, output)`** — Builds a Whisper execution plan with output mapping.
@@ -177,7 +182,8 @@ Returns a human-readable explanation of why this plugin was chosen and what it w
 import {
   definePlugin,
   detectFirstAvailableCommand,
-  installHintByPlatform,
+  manualInstallStrategy,
+  packageManagerStrategy,
 } from "@morphase/plugin-sdk";
 import type {
   MorphasePlugin,
@@ -187,7 +193,7 @@ import type {
   Platform,
   DetectionResult,
   VerificationResult,
-  InstallHint,
+  InstallStrategy,
 } from "@morphase/shared";
 
 export const myPlugin = definePlugin({
@@ -211,12 +217,13 @@ export const myPlugin = definePlugin({
     return { ok: true };
   },
 
-  getInstallHints(platform: Platform): InstallHint[] {
-    return installHintByPlatform(platform, {
-      macos: { command: "brew install mytool" },
-      windows: { command: "winget install MyTool" },
-      linux: { command: "sudo apt-get install mytool" },
-    });
+  getInstallStrategies(): InstallStrategy[] {
+    return [
+      packageManagerStrategy("brew", "brew install mytool"),
+      packageManagerStrategy("winget", "winget install MyTool"),
+      packageManagerStrategy("apt", "sudo apt-get install mytool"),
+      manualInstallStrategy("Install MyTool manually"),
+    ];
   },
 
   async plan(request: PlanRequest): Promise<ExecutionPlan | null> {

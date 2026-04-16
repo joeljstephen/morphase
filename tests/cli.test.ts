@@ -1,13 +1,24 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
-const cliEntry = path.join(repoRoot, "apps/cli/src/index.ts");
+const cliEntry = path.join(repoRoot, "apps/cli/dist/index.js");
+
+beforeAll(() => {
+  const build = spawnSync("pnpm", ["build"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+
+  if (build.status !== 0) {
+    throw new Error(build.stderr || build.stdout || "Failed to build workspace before CLI tests.");
+  }
+});
 
 function runCli(args: string[]) {
-  return spawnSync(process.execPath, ["--import", "tsx", cliEntry, ...args], {
+  return spawnSync(process.execPath, [cliEntry, ...args], {
     cwd: repoRoot,
     encoding: "utf8"
   });

@@ -27,7 +27,40 @@ export const resourceKinds = [
 
 export type ResourceKind = (typeof resourceKinds)[number];
 
-export type Platform = "macos" | "windows" | "linux";
+export type SupportedOS = "macos" | "windows" | "linux";
+export type Platform = SupportedOS;
+
+export type LinuxDistro =
+  | "ubuntu"
+  | "debian"
+  | "fedora"
+  | "rhel"
+  | "arch"
+  | "manjaro"
+  | "opensuse"
+  | "alpine"
+  | "unknown";
+
+export type PackageManager =
+  | "brew"
+  | "winget"
+  | "choco"
+  | "scoop"
+  | "apt"
+  | "dnf"
+  | "yum"
+  | "pacman"
+  | "zypper"
+  | "apk"
+  | "pip"
+  | "pipx"
+  | "npm";
+
+export type RuntimeEnvironment = {
+  os: SupportedOS;
+  distro?: LinuxDistro;
+  packageManagers: PackageManager[];
+};
 
 export type Route =
   | {
@@ -77,10 +110,34 @@ export type VerificationResult = {
   warnings?: string[];
 };
 
+export type PackageManagerInstallStrategy = {
+  kind: "package-manager";
+  manager: PackageManager;
+  command: string;
+  os?: SupportedOS[];
+  distros?: LinuxDistro[];
+  notes?: string[];
+};
+
+export type ManualInstallStrategy = {
+  kind: "manual";
+  label: string;
+  os?: SupportedOS[];
+  distros?: LinuxDistro[];
+  notes?: string[];
+  url?: string;
+};
+
+export type InstallStrategy = PackageManagerInstallStrategy | ManualInstallStrategy;
+
 export type InstallHint = {
-  manager: "brew" | "winget" | "apt-get" | "manual";
+  kind: "package-manager" | "manual";
+  label: string;
+  manager?: PackageManager;
   command?: string;
   notes?: string[];
+  url?: string;
+  autoInstallable: boolean;
 };
 
 export type OutputMapping = {
@@ -187,6 +244,7 @@ export type JobRecord = {
 export type BackendDoctorReport = {
   id: string;
   name: string;
+  runtimeEnvironment: RuntimeEnvironment;
   installed: boolean;
   version?: string;
   minimumVersion?: string;
@@ -233,8 +291,8 @@ export interface MorphasePlugin {
   capabilities(): Capability[];
   detect(platform: Platform): Promise<DetectionResult>;
   verify(platform: Platform): Promise<VerificationResult>;
-  getInstallHints(platform: Platform): InstallHint[];
-  getUpdateHints?(platform: Platform): InstallHint[];
+  getInstallStrategies(): InstallStrategy[];
+  getUpdateStrategies?(): InstallStrategy[];
   plan(request: PlanRequest): Promise<ExecutionPlan | null>;
   explain(request: PlanRequest): Promise<string>;
 }

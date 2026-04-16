@@ -1,5 +1,5 @@
 import { builtinPlugins } from "@morphase/plugins";
-import type { BackendDoctorReport, JobRecord, JobRequest, JobResult, MorphaseConfig, MorphasePlugin, PlannedExecution } from "@morphase/shared";
+import { installHintSummary, resolveInstallHints, type BackendDoctorReport, type JobRecord, type JobRequest, type JobResult, type MorphaseConfig, type MorphasePlugin, type PlannedExecution, type RuntimeEnvironment } from "@morphase/shared";
 
 import { loadMorphaseConfig } from "./config/load-config.js";
 import { Doctor } from "./doctor/doctor.js";
@@ -7,7 +7,7 @@ import { createError } from "./errors/morphase-error.js";
 import { Executor } from "./executor/executor.js";
 import { JobManager } from "./jobs/job-manager.js";
 import { Logger } from "./logging/logger.js";
-import { detectPlatform } from "./platform/platform.js";
+import { detectPlatform, detectRuntimeEnvironment } from "./platform/platform.js";
 import { normalizeRequest, toPlanRequest } from "./planner/normalize-request.js";
 import { Planner } from "./planner/planner.js";
 import { PluginRegistry } from "./registry/plugin-registry.js";
@@ -22,6 +22,7 @@ export class MorphaseEngine {
 
   private constructor(
     private readonly config: MorphaseConfig,
+    private readonly runtimeEnvironment: RuntimeEnvironment,
     plugins: MorphasePlugin[]
   ) {
     this.registry = new PluginRegistry(plugins);
@@ -33,11 +34,16 @@ export class MorphaseEngine {
 
   static async create(plugins: MorphasePlugin[] = builtinPlugins): Promise<MorphaseEngine> {
     const config = await loadMorphaseConfig();
-    return new MorphaseEngine(config, plugins);
+    const runtimeEnvironment = await detectRuntimeEnvironment();
+    return new MorphaseEngine(config, runtimeEnvironment, plugins);
   }
 
   getConfig(): MorphaseConfig {
     return this.config;
+  }
+
+  getRuntimeEnvironment(): RuntimeEnvironment {
+    return this.runtimeEnvironment;
   }
 
   listPlugins(): MorphasePlugin[] {
@@ -78,11 +84,12 @@ export class MorphaseEngine {
 
     if (plan.installNeeded) {
       const plugin = this.registry.get(plan.selectedPluginId);
+      const hints = plugin ? resolveInstallHints(plugin.getInstallStrategies(), this.runtimeEnvironment) : [];
       throw createError({
         code: "BACKEND_NOT_INSTALLED",
         message: `${plugin?.name ?? plan.selectedPluginId} is required for this route but is not installed.`,
         backendId: plan.selectedPluginId,
-        suggestedFixes: plugin?.getInstallHints(detectPlatform()).map((hint) => hint.command ?? hint.manager)
+        suggestedFixes: hints.map((hint) => installHintSummary(hint))
       });
     }
 
@@ -98,7 +105,7 @@ export class MorphaseEngine {
   }
 
   async doctorAll(): Promise<BackendDoctorReport[]> {
-    return this.doctor.inspectAll(this.registry.list(), detectPlatform());
+    return this.doctor.inspectAll(this.registry.list(), this.runtimeEnvironment.os, this.runtimeEnvironment);
   }
 
   async doctorBackend(backendId: string): Promise<BackendDoctorReport> {
@@ -110,7 +117,7 @@ export class MorphaseEngine {
       });
     }
 
-    return this.doctor.inspectBackend(plugin, detectPlatform());
+    return this.doctor.inspectBackend(plugin, this.runtimeEnvironment.os, this.runtimeEnvironment);
   }
 }
 

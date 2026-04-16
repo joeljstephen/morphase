@@ -1,15 +1,33 @@
 import path from "node:path";
 
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
-import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
+import { definePlugin } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
-const installHints = {
-  macos: { manager: "brew" as const, command: "brew install jpegoptim" },
-  windows: { manager: "manual" as const, notes: ["Install jpegoptim manually or via WSL."] },
-  linux: { manager: "apt-get" as const, command: "sudo apt-get install jpegoptim" }
-};
+const installStrategies = [
+  strategyForManager("brew", "brew install jpegoptim"),
+  strategyForManager("apt", "sudo apt-get install jpegoptim"),
+  strategyForManager("dnf", "sudo dnf install jpegoptim"),
+  strategyForManager("yum", "sudo yum install jpegoptim"),
+  strategyForManager("pacman", "sudo pacman -S jpegoptim"),
+  strategyForManager("zypper", "sudo zypper install jpegoptim"),
+  manualStrategy("Install jpegoptim manually", {
+    notes: ["jpegoptim is not bundled with Morphase on Windows. Install it manually or use WSL."]
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("brew", "brew upgrade jpegoptim"),
+  strategyForManager("apt", "sudo apt-get install --only-upgrade jpegoptim"),
+  strategyForManager("dnf", "sudo dnf upgrade jpegoptim"),
+  strategyForManager("yum", "sudo yum update jpegoptim"),
+  strategyForManager("pacman", "sudo pacman -Syu jpegoptim"),
+  strategyForManager("zypper", "sudo zypper update jpegoptim"),
+  manualStrategy("Update jpegoptim manually", {
+    notes: ["On Windows, update the manual or WSL installation you use for jpegoptim."]
+  })
+];
 
 export const jpegoptimPlugin: MorphasePlugin = definePlugin({
   id: "jpegoptim",
@@ -39,15 +57,11 @@ export const jpegoptimPlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["jpegoptim"], ["--version"]);
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "brew", command: "brew upgrade jpegoptim" },
-      windows: { manager: "manual", notes: ["Install jpegoptim manually or via WSL."] },
-      linux: { manager: "apt-get", command: "sudo apt-get install --only-upgrade jpegoptim" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (

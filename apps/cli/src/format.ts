@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type { BackendDoctorReport, JobResult, MorphaseError } from "@morphase/shared";
+import { installHintSummary } from "@morphase/shared";
+import type { BackendDoctorReport, InstallHint, JobResult, MorphaseError } from "@morphase/shared";
 
 const green = "\x1b[32m";
 const red = "\x1b[31m";
@@ -19,6 +20,24 @@ function humanSize(bytes: number): string {
 
 function labeled(label: string, value: string): string {
   return `    ${dim}${label.padEnd(8)}${reset} ${value}`;
+}
+
+function appendHint(lines: string[], label: string, hint: InstallHint | undefined) {
+  if (!hint) {
+    return;
+  }
+
+  lines.push(labeled(label, installHintSummary(hint)));
+
+  if (hint.url) {
+    lines.push(labeled("Docs", hint.url));
+  }
+
+  if (hint.notes?.length) {
+    for (const note of hint.notes) {
+      lines.push(labeled("Note", note));
+    }
+  }
 }
 
 export function formatCliError(error: unknown): string {
@@ -54,17 +73,11 @@ export function formatDoctorReport(report: BackendDoctorReport): string {
 
   if (report.installed && !report.versionSupported && report.minimumVersion) {
     lines.push(`  ${red}✗${reset} version ${report.version} is below minimum ${report.minimumVersion}`);
-    const updateCmd = report.updateHints[0]?.command;
-    if (updateCmd) {
-      lines.push(`  ${dim}Update:${reset} ${updateCmd}`);
-    }
+    appendHint(lines, "Update", report.updateHints[0]);
   }
 
   if (!report.installed && report.installHints.length) {
-    const cmd = report.installHints[0]?.command;
-    if (cmd) {
-      lines.push(`  ${dim}Install:${reset} ${cmd}`);
-    }
+    appendHint(lines, "Install", report.installHints[0]);
   }
 
   if (report.issues.length) {

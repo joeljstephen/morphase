@@ -1,7 +1,7 @@
 import path from "node:path";
 
-import { detectFirstAvailableCommand } from "@morphase/plugin-sdk";
-import { compareSemver, parseFirstSemver, runCommandCapture, type DetectionResult, type ExecutionPlan, type InstallHint, type Platform } from "@morphase/shared";
+import { detectFirstAvailableCommand, manualInstallStrategy, packageManagerStrategy } from "@morphase/plugin-sdk";
+import { compareSemver, parseFirstSemver, runCommandCapture, type DetectionResult, type ExecutionPlan, type InstallStrategy, type PackageManager } from "@morphase/shared";
 
 export async function detectBinary(
   commands: string[],
@@ -14,17 +14,19 @@ export async function detectBinary(
   };
 }
 
-export function packageHints(
-  macos: string,
-  windows: string,
-  linux: string,
-  notes: string[] = []
-): Record<Platform, InstallHint> {
-  return {
-    macos: { manager: "brew", command: macos, notes },
-    windows: { manager: "winget", command: windows, notes },
-    linux: { manager: "apt-get", command: linux, notes }
-  };
+export function strategyForManager(
+  manager: PackageManager,
+  command: string,
+  options: Omit<Extract<InstallStrategy, { kind: "package-manager" }>, "kind" | "manager" | "command"> = {}
+): InstallStrategy {
+  return packageManagerStrategy(manager, command, options);
+}
+
+export function manualStrategy(
+  label: string,
+  options: Omit<Extract<InstallStrategy, { kind: "manual" }>, "kind" | "label"> = {}
+): InstallStrategy {
+  return manualInstallStrategy(label, options);
 }
 
 export async function verifyBinary(

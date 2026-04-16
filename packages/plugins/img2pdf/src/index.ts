@@ -1,17 +1,29 @@
 import path from "node:path";
 
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
 const imageKinds: ResourceKind[] = ["jpg", "png"];
 
-const installHints = packageHints(
-  "pip install img2pdf",
-  "py -m pip install img2pdf",
-  "pip install img2pdf"
-);
+const installStrategies = [
+  strategyForManager("pipx", "pipx install img2pdf"),
+  strategyForManager("pip", "pip install img2pdf", { os: ["macos", "linux"] }),
+  strategyForManager("pip", "py -m pip install img2pdf", { os: ["windows"] }),
+  manualStrategy("Install Python 3 and img2pdf manually", {
+    notes: ["img2pdf is a Python CLI tool. Ensure the img2pdf executable is on PATH after installation."]
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("pipx", "pipx upgrade img2pdf"),
+  strategyForManager("pip", "pip install --upgrade img2pdf", { os: ["macos", "linux"] }),
+  strategyForManager("pip", "py -m pip install --upgrade img2pdf", { os: ["windows"] }),
+  manualStrategy("Update img2pdf manually", {
+    notes: ["Use your Python package manager to update img2pdf and keep it on PATH."]
+  })
+];
 
 function isImageKind(kind: ResourceKind | undefined): boolean {
   return kind !== undefined && imageKinds.includes(kind);
@@ -44,15 +56,11 @@ export const img2pdfPlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["img2pdf"]);
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "manual", command: "pip install --upgrade img2pdf" },
-      windows: { manager: "manual", command: "py -m pip install --upgrade img2pdf" },
-      linux: { manager: "manual", command: "pip install --upgrade img2pdf" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (request.route.kind !== "conversion" || !request.output) {

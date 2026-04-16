@@ -1,14 +1,33 @@
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
-import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
+import { definePlugin } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "pip install 'markitdown[all]'",
-  "py -m pip install markitdown[all]",
-  "pip install 'markitdown[all]'",
-  ["MarkItDown is a Python package and is commonly installed via pip."]
-);
+const installStrategies = [
+  strategyForManager("pipx", "pipx install 'markitdown[all]'", {
+    notes: ["MarkItDown is a Python package and is commonly installed via pip or pipx."]
+  }),
+  strategyForManager("pip", "pip install 'markitdown[all]'", {
+    os: ["macos", "linux"],
+    notes: ["MarkItDown is a Python package and is commonly installed via pip or pipx."]
+  }),
+  strategyForManager("pip", "py -m pip install markitdown[all]", {
+    os: ["windows"],
+    notes: ["MarkItDown is a Python package and is commonly installed via pip or pipx."]
+  }),
+  manualStrategy("Install Python 3 and MarkItDown manually", {
+    notes: ["Ensure the markitdown executable is on PATH after installation."]
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("pipx", "pipx upgrade markitdown"),
+  strategyForManager("pip", "pip install --upgrade 'markitdown[all]'", { os: ["macos", "linux"] }),
+  strategyForManager("pip", "py -m pip install --upgrade markitdown[all]", { os: ["windows"] }),
+  manualStrategy("Update MarkItDown manually", {
+    notes: ["Use your Python package manager to update MarkItDown and keep it on PATH."]
+  })
+];
 
 export const markitdownPlugin: MorphasePlugin = definePlugin({
   id: "markitdown",
@@ -43,15 +62,11 @@ export const markitdownPlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["markitdown"], ["--version"]);
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "manual", command: "pip install --upgrade 'markitdown[all]'" },
-      windows: { manager: "manual", command: "py -m pip install --upgrade markitdown[all]" },
-      linux: { manager: "manual", command: "pip install --upgrade 'markitdown[all]'" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (request.route.kind !== "conversion" || typeof request.input !== "string" || request.route.to !== "markdown" || !request.output) {

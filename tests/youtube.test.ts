@@ -4,7 +4,12 @@ import { Doctor } from "../packages/engine/src/doctor/doctor.js";
 import { enrichError } from "../packages/engine/src/executor/executor.js";
 import { ROUTE_PREFERENCES } from "../packages/shared/src/constants/routes.js";
 import { isMediaUrl, isYoutubeUrl } from "../packages/shared/src/utils/resources.js";
-import type { MorphaseError, MorphasePlugin } from "../packages/shared/src/index.js";
+import type { MorphaseError, MorphasePlugin, RuntimeEnvironment } from "../packages/shared/src/index.js";
+
+const macosEnvironment: RuntimeEnvironment = {
+  os: "macos",
+  packageManagers: ["brew", "npm"]
+};
 
 describe("YouTube URL detection", () => {
   it("detects standard youtube.com watch URLs", () => {
@@ -183,8 +188,8 @@ describe("Doctor backend reports", () => {
       verify: async () => installed
         ? { ok: true, issues: [], warnings: [] }
         : { ok: false, issues: ["not installed"], warnings: [] },
-      getInstallHints: () => [{ manager: "brew", command: `brew install ${id}` }],
-      getUpdateHints: () => [{ manager: "brew", command: `brew upgrade ${id}` }],
+      getInstallStrategies: () => [{ kind: "package-manager", manager: "brew", command: `brew install ${id}` }],
+      getUpdateStrategies: () => [{ kind: "package-manager", manager: "brew", command: `brew upgrade ${id}` }],
       plan: async () => null,
       explain: async () => id
     };
@@ -192,7 +197,7 @@ describe("Doctor backend reports", () => {
 
   it("reports summarize not installed", async () => {
     const doctor = new Doctor();
-    const report = await doctor.inspectBackend(createStubPlugin("summarize", false), "macos");
+    const report = await doctor.inspectBackend(createStubPlugin("summarize", false), "macos", macosEnvironment);
     expect(report.installed).toBe(false);
     expect(report.id).toBe("summarize");
     expect(report.installHints.length).toBeGreaterThan(0);
@@ -200,7 +205,7 @@ describe("Doctor backend reports", () => {
 
   it("reports ytdlp installed and healthy", async () => {
     const doctor = new Doctor();
-    const report = await doctor.inspectBackend(createStubPlugin("ytdlp", true), "macos");
+    const report = await doctor.inspectBackend(createStubPlugin("ytdlp", true), "macos", macosEnvironment);
     expect(report.installed).toBe(true);
     expect(report.verified).toBe(true);
     expect(report.version).toBe("1.0.0");
@@ -208,7 +213,7 @@ describe("Doctor backend reports", () => {
 
   it("reports ffmpeg installed and healthy", async () => {
     const doctor = new Doctor();
-    const report = await doctor.inspectBackend(createStubPlugin("ffmpeg", true), "macos");
+    const report = await doctor.inspectBackend(createStubPlugin("ffmpeg", true), "macos", macosEnvironment);
     expect(report.installed).toBe(true);
     expect(report.verified).toBe(true);
   });

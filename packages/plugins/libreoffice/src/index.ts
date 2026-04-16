@@ -1,13 +1,33 @@
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, libreOfficeConvert, libreOfficeGeneratedPdf, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, libreOfficeConvert, libreOfficeGeneratedPdf, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "brew install --cask libreoffice",
-  "winget install TheDocumentFoundation.LibreOffice",
-  "sudo apt-get install libreoffice"
-);
+const installStrategies = [
+  strategyForManager("brew", "brew install --cask libreoffice"),
+  strategyForManager("winget", "winget install TheDocumentFoundation.LibreOffice"),
+  strategyForManager("apt", "sudo apt-get install libreoffice"),
+  strategyForManager("dnf", "sudo dnf install libreoffice"),
+  strategyForManager("yum", "sudo yum install libreoffice"),
+  strategyForManager("pacman", "sudo pacman -S libreoffice-fresh"),
+  strategyForManager("zypper", "sudo zypper install libreoffice"),
+  manualStrategy("Install LibreOffice manually", {
+    url: "https://www.libreoffice.org/download/download-libreoffice/"
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("brew", "brew upgrade --cask libreoffice"),
+  strategyForManager("winget", "winget upgrade TheDocumentFoundation.LibreOffice"),
+  strategyForManager("apt", "sudo apt-get install --only-upgrade libreoffice"),
+  strategyForManager("dnf", "sudo dnf upgrade libreoffice"),
+  strategyForManager("yum", "sudo yum update libreoffice"),
+  strategyForManager("pacman", "sudo pacman -Syu libreoffice-fresh"),
+  strategyForManager("zypper", "sudo zypper update libreoffice"),
+  manualStrategy("Update LibreOffice manually", {
+    url: "https://www.libreoffice.org/download/download-libreoffice/"
+  })
+];
 
 export const libreOfficePlugin: MorphasePlugin = definePlugin({
   id: "libreoffice",
@@ -63,15 +83,11 @@ export const libreOfficePlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["soffice", "libreoffice"], ["--version"], "7.0.0");
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "brew", command: "brew upgrade --cask libreoffice" },
-      windows: { manager: "winget", command: "winget upgrade TheDocumentFoundation.LibreOffice" },
-      linux: { manager: "apt-get", command: "sudo apt-get install --only-upgrade libreoffice" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (

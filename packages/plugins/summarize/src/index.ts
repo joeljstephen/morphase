@@ -1,14 +1,27 @@
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
-import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
+import { definePlugin } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "npm i -g @steipete/summarize",
-  "npm i -g @steipete/summarize",
-  "npm i -g @steipete/summarize",
-  ["Alternative: brew install summarize", "Requires Node 22+"]
-);
+const installStrategies = [
+  strategyForManager("npm", "npm i -g @steipete/summarize", {
+    notes: ["Requires Node 22+."]
+  }),
+  strategyForManager("brew", "brew install summarize", {
+    notes: ["Requires Node 22+."]
+  }),
+  manualStrategy("Install Node.js 22+ and summarize manually", {
+    notes: ["Install Node.js with npm, then install summarize and ensure the global npm bin directory is on PATH."]
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("npm", "npm update -g @steipete/summarize"),
+  strategyForManager("brew", "brew upgrade summarize"),
+  manualStrategy("Update summarize manually", {
+    notes: ["Use your npm or Homebrew installation path to update summarize."]
+  })
+];
 
 export const summarizePlugin: MorphasePlugin = definePlugin({
   id: "summarize",
@@ -47,15 +60,11 @@ export const summarizePlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["summarize"], ["--version"]);
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "brew", command: "npm update -g @steipete/summarize", notes: ["Alternative: brew upgrade summarize"] },
-      windows: { manager: "manual", command: "npm update -g @steipete/summarize" },
-      linux: { manager: "manual", command: "npm update -g @steipete/summarize" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (request.route.kind !== "conversion" || typeof request.input !== "string" || !request.output) {

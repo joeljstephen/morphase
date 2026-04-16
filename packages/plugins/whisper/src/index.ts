@@ -1,14 +1,33 @@
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
-import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
+import { definePlugin } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary, whisperGeneratedTranscript } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary, whisperGeneratedTranscript } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "pip install openai-whisper",
-  "py -m pip install openai-whisper",
-  "pip install openai-whisper",
-  ["Whisper CLI is a Python package and may need FFmpeg installed as well."]
-);
+const installStrategies = [
+  strategyForManager("pipx", "pipx install openai-whisper", {
+    notes: ["Whisper CLI is a Python package and may need FFmpeg installed as well."]
+  }),
+  strategyForManager("pip", "pip install openai-whisper", {
+    os: ["macos", "linux"],
+    notes: ["Whisper CLI is a Python package and may need FFmpeg installed as well."]
+  }),
+  strategyForManager("pip", "py -m pip install openai-whisper", {
+    os: ["windows"],
+    notes: ["Whisper CLI is a Python package and may need FFmpeg installed as well."]
+  }),
+  manualStrategy("Install Python 3 and Whisper manually", {
+    notes: ["Install openai-whisper and ensure both whisper and ffmpeg are on PATH."]
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("pipx", "pipx upgrade openai-whisper"),
+  strategyForManager("pip", "pip install --upgrade openai-whisper", { os: ["macos", "linux"] }),
+  strategyForManager("pip", "py -m pip install --upgrade openai-whisper", { os: ["windows"] }),
+  manualStrategy("Update Whisper manually", {
+    notes: ["Use your Python package manager to update openai-whisper and keep ffmpeg installed."]
+  })
+];
 
 export const whisperPlugin: MorphasePlugin = definePlugin({
   id: "whisper",
@@ -37,15 +56,11 @@ export const whisperPlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["whisper"], ["--help"]);
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "manual", command: "pip install --upgrade openai-whisper" },
-      windows: { manager: "manual", command: "py -m pip install --upgrade openai-whisper" },
-      linux: { manager: "manual", command: "pip install --upgrade openai-whisper" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (

@@ -1,15 +1,36 @@
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
 const MINIMUM_VERSION = "6.0.0";
 
-const installHints = packageHints(
-  "brew install ffmpeg",
-  "winget install Gyan.FFmpeg",
-  "sudo apt-get install ffmpeg"
-);
+const installStrategies = [
+  strategyForManager("brew", "brew install ffmpeg"),
+  strategyForManager("winget", "winget install Gyan.FFmpeg"),
+  strategyForManager("apt", "sudo apt-get install ffmpeg"),
+  strategyForManager("dnf", "sudo dnf install ffmpeg"),
+  strategyForManager("yum", "sudo yum install ffmpeg"),
+  strategyForManager("pacman", "sudo pacman -S ffmpeg"),
+  strategyForManager("zypper", "sudo zypper install ffmpeg"),
+  manualStrategy("Install FFmpeg manually", {
+    notes: ["Ensure the ffmpeg executable is available on PATH after installation."],
+    url: "https://www.ffmpeg.org/download.html"
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("brew", "brew upgrade ffmpeg"),
+  strategyForManager("winget", "winget upgrade --id Gyan.FFmpeg"),
+  strategyForManager("apt", "sudo apt-get install --only-upgrade ffmpeg"),
+  strategyForManager("dnf", "sudo dnf upgrade ffmpeg"),
+  strategyForManager("yum", "sudo yum update ffmpeg"),
+  strategyForManager("pacman", "sudo pacman -Syu ffmpeg"),
+  strategyForManager("zypper", "sudo zypper update ffmpeg"),
+  manualStrategy("Update FFmpeg manually", {
+    url: "https://www.ffmpeg.org/download.html"
+  })
+];
 
 const videoKinds: ResourceKind[] = ["mp4", "mov", "mkv"];
 
@@ -91,15 +112,11 @@ export const ffmpegPlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["ffmpeg"], ["-version"], MINIMUM_VERSION);
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "brew", command: "brew upgrade ffmpeg" },
-      windows: { manager: "winget", command: "winget upgrade --id Gyan.FFmpeg" },
-      linux: { manager: "apt-get", command: "sudo apt-get install --only-upgrade ffmpeg" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (typeof request.input !== "string" || !request.output) {

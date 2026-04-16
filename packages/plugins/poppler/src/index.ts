@@ -1,15 +1,33 @@
 import path from "node:path";
 
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "brew install poppler",
-  "winget install poppler",
-  "sudo apt-get install poppler-utils"
-);
+const installStrategies = [
+  strategyForManager("brew", "brew install poppler"),
+  strategyForManager("winget", "winget install poppler"),
+  strategyForManager("apt", "sudo apt-get install poppler-utils"),
+  strategyForManager("dnf", "sudo dnf install poppler-utils"),
+  strategyForManager("yum", "sudo yum install poppler-utils"),
+  strategyForManager("pacman", "sudo pacman -S poppler"),
+  manualStrategy("Install Poppler manually", {
+    notes: ["Install Poppler utilities and ensure pdftocairo and pdfimages are available on PATH."]
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("brew", "brew upgrade poppler"),
+  strategyForManager("winget", "winget upgrade poppler"),
+  strategyForManager("apt", "sudo apt-get install --only-upgrade poppler-utils"),
+  strategyForManager("dnf", "sudo dnf upgrade poppler-utils"),
+  strategyForManager("yum", "sudo yum update poppler-utils"),
+  strategyForManager("pacman", "sudo pacman -Syu poppler"),
+  manualStrategy("Update Poppler manually", {
+    notes: ["Use your installation method to update Poppler and keep pdftocairo/pdfimages on PATH."]
+  })
+];
 
 function outputPrefixAndDir(outputPath: string): { prefix: string; dir: string } {
   const ext = path.extname(outputPath);
@@ -68,15 +86,11 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["pdftocairo"], ["-v"]);
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "brew", command: "brew upgrade poppler" },
-      windows: { manager: "winget", command: "winget upgrade poppler" },
-      linux: { manager: "apt-get", command: "sudo apt-get install --only-upgrade poppler-utils" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (typeof request.input !== "string" || !request.output) {

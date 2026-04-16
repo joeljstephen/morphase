@@ -1,13 +1,31 @@
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
-import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
+import { definePlugin } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
-const installHints = {
-  macos: { manager: "brew" as const, command: "brew install optipng" },
-  windows: { manager: "manual" as const, notes: ["Install optipng manually or via WSL."] },
-  linux: { manager: "apt-get" as const, command: "sudo apt-get install optipng" }
-};
+const installStrategies = [
+  strategyForManager("brew", "brew install optipng"),
+  strategyForManager("apt", "sudo apt-get install optipng"),
+  strategyForManager("dnf", "sudo dnf install optipng"),
+  strategyForManager("yum", "sudo yum install optipng"),
+  strategyForManager("pacman", "sudo pacman -S optipng"),
+  strategyForManager("zypper", "sudo zypper install optipng"),
+  manualStrategy("Install optipng manually", {
+    notes: ["optipng is not bundled with Morphase on Windows. Install it manually or use WSL."]
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("brew", "brew upgrade optipng"),
+  strategyForManager("apt", "sudo apt-get install --only-upgrade optipng"),
+  strategyForManager("dnf", "sudo dnf upgrade optipng"),
+  strategyForManager("yum", "sudo yum update optipng"),
+  strategyForManager("pacman", "sudo pacman -Syu optipng"),
+  strategyForManager("zypper", "sudo zypper update optipng"),
+  manualStrategy("Update optipng manually", {
+    notes: ["On Windows, update the manual or WSL installation you use for optipng."]
+  })
+];
 
 export const optipngPlugin: MorphasePlugin = definePlugin({
   id: "optipng",
@@ -37,15 +55,11 @@ export const optipngPlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["optipng"], ["--version"]);
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "brew", command: "brew upgrade optipng" },
-      windows: { manager: "manual", notes: ["Install optipng manually or via WSL."] },
-      linux: { manager: "apt-get", command: "sudo apt-get install --only-upgrade optipng" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (

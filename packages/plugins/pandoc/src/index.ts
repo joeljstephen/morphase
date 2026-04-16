@@ -1,15 +1,49 @@
-import { definePlugin, installHintByPlatform } from "@morphase/plugin-sdk";
+import { definePlugin } from "@morphase/plugin-sdk";
 import { runCommandCapture } from "@morphase/shared";
-import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
+import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, packageHints, verifyBinary } from "../../src/helpers.js";
+import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
 
-const installHints = packageHints(
-  "brew install pandoc",
-  "winget install JohnMacFarlane.Pandoc",
-  "sudo apt-get install pandoc",
-  ["PDF output may also require a PDF engine available to Pandoc."]
-);
+const installStrategies = [
+  strategyForManager("brew", "brew install pandoc", {
+    notes: ["PDF output may also require a PDF engine available to Pandoc."]
+  }),
+  strategyForManager("winget", "winget install JohnMacFarlane.Pandoc", {
+    notes: ["PDF output may also require a PDF engine available to Pandoc."]
+  }),
+  strategyForManager("apt", "sudo apt-get install pandoc", {
+    notes: ["PDF output may also require a PDF engine available to Pandoc."]
+  }),
+  strategyForManager("dnf", "sudo dnf install pandoc", {
+    notes: ["PDF output may also require a PDF engine available to Pandoc."]
+  }),
+  strategyForManager("yum", "sudo yum install pandoc", {
+    notes: ["PDF output may also require a PDF engine available to Pandoc."]
+  }),
+  strategyForManager("pacman", "sudo pacman -S pandoc", {
+    notes: ["PDF output may also require a PDF engine available to Pandoc."]
+  }),
+  strategyForManager("zypper", "sudo zypper install pandoc", {
+    notes: ["PDF output may also require a PDF engine available to Pandoc."]
+  }),
+  manualStrategy("Install Pandoc manually", {
+    notes: ["PDF output may also require a PDF engine available to Pandoc."],
+    url: "https://pandoc.org/installing.html"
+  })
+];
+
+const updateStrategies = [
+  strategyForManager("brew", "brew upgrade pandoc"),
+  strategyForManager("winget", "winget upgrade JohnMacFarlane.Pandoc"),
+  strategyForManager("apt", "sudo apt-get install --only-upgrade pandoc"),
+  strategyForManager("dnf", "sudo dnf upgrade pandoc"),
+  strategyForManager("yum", "sudo yum update pandoc"),
+  strategyForManager("pacman", "sudo pacman -S pandoc"),
+  strategyForManager("zypper", "sudo zypper update pandoc"),
+  manualStrategy("Update Pandoc manually", {
+    url: "https://pandoc.org/installing.html"
+  })
+];
 
 export const pandocPlugin: MorphasePlugin = definePlugin({
   id: "pandoc",
@@ -79,15 +113,11 @@ export const pandocPlugin: MorphasePlugin = definePlugin({
   async verify() {
     return verifyBinary(["pandoc"], ["--version"], "3.0.0");
   },
-  getInstallHints(platform: Platform) {
-    return installHintByPlatform(platform, installHints);
+  getInstallStrategies() {
+    return installStrategies;
   },
-  getUpdateHints(platform: Platform) {
-    return installHintByPlatform(platform, {
-      macos: { manager: "brew", command: "brew upgrade pandoc" },
-      windows: { manager: "winget", command: "winget upgrade JohnMacFarlane.Pandoc" },
-      linux: { manager: "apt-get", command: "sudo apt-get install --only-upgrade pandoc" }
-    });
+  getUpdateStrategies() {
+    return updateStrategies;
   },
   async plan(request: PlanRequest) {
     if (request.route.kind !== "conversion" || typeof request.input !== "string" || !request.output) {

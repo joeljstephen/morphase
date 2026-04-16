@@ -1,5 +1,5 @@
 import { runCommandCapture } from "@morphase/shared";
-import type { DetectionResult, InstallHint, MorphasePlugin, Platform } from "@morphase/shared";
+import type { DetectionResult, InstallStrategy, ManualInstallStrategy, MorphasePlugin, PackageManager, PackageManagerInstallStrategy } from "@morphase/shared";
 
 export function definePlugin(plugin: MorphasePlugin): MorphasePlugin {
   return plugin;
@@ -26,11 +26,26 @@ export async function detectFirstAvailableCommand(
   };
 }
 
-export function installHintByPlatform(
-  platform: Platform,
-  hints: Record<Platform, InstallHint>
-): InstallHint[] {
-  const hint = hints[platform];
-  return hint ? [hint] : [{ manager: "manual", notes: ["Install the backend manually."] }];
+export function packageManagerStrategy(
+  manager: PackageManager,
+  command: string,
+  options: Omit<PackageManagerInstallStrategy, "kind" | "manager" | "command"> = {}
+): InstallStrategy {
+  return {
+    kind: "package-manager",
+    manager,
+    command,
+    ...options
+  };
 }
 
+export function manualInstallStrategy(
+  label: string,
+  options: Omit<ManualInstallStrategy, "kind" | "label"> = {}
+): InstallStrategy {
+  return {
+    kind: "manual",
+    label,
+    ...options
+  };
+}

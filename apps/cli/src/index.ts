@@ -6,7 +6,7 @@ import { execa } from "execa";
 import prompts from "prompts";
 
 import { MorphaseEngine } from "@morphase/engine";
-import { inferResourceKind, isMediaUrl, isYoutubeUrl, type JobRequest, type ResourceKind } from "@morphase/shared";
+import { canAutoInstall, installHintSummary, inferResourceKind, isMediaUrl, isYoutubeUrl, type InstallHint, type JobRequest, type ResourceKind } from "@morphase/shared";
 
 import { formatCliError, formatDoctorReport, formatJobResult } from "./format.js";
 import { runWizard } from "./wizard.js";
@@ -193,20 +193,49 @@ function packageManagerDelegationDisabledMessage(): string {
   return "Package-manager delegation is disabled. Set allowPackageManagerDelegation=true in ~/.morphase/config.json before using --run.";
 }
 
+function primaryHintCommand(hint: InstallHint | undefined): string | undefined {
+  return hint?.kind === "package-manager" ? hint.command : undefined;
+}
+
+function printManualGuidance(hint: InstallHint | undefined) {
+  if (!hint) {
+    console.log(`\n  No install guidance is available. Install the backend manually and try again.`);
+    return;
+  }
+
+  console.log(`\n  ${installHintSummary(hint)}`);
+  if (hint.notes?.length) {
+    for (const note of hint.notes) {
+      console.log(`  ${note}`);
+    }
+  }
+}
+
 async function promptAndInstall(engine: MorphaseEngine, backendId: string): Promise<boolean> {
   const report = await engine.doctorBackend(backendId);
-  const hints = report.installHints;
-  const command = hints[0]?.command;
+  const hint = report.installHints[0];
+  const command = primaryHintCommand(hint);
+  const delegationEnabled = engine.getConfig().allowPackageManagerDelegation;
 
-  if (!command) {
+  if (!hint) {
     console.log(formatDoctorReport(report));
-    console.log(`\n  No automated install command available. Install manually and try again.`);
+    console.log(`\n  No install guidance is available. Install manually and try again.`);
     return false;
   }
 
-  if (!process.stdin.isTTY) {
+  if (command && !delegationEnabled) {
     console.log(formatDoctorReport(report));
-    console.log(`\n  Install it with: ${command}`);
+    console.log(`\n  ${packageManagerDelegationDisabledMessage()}`);
+    console.log(`  Run this command manually: ${command}`);
+    return false;
+  }
+
+  if (!process.stdin.isTTY || !canAutoInstall(hint, {
+    delegationEnabled,
+    interactive: Boolean(process.stdin.isTTY)
+  })) {
+    console.log(formatDoctorReport(report));
+    printManualGuidance(hint);
     return false;
   }
 
@@ -214,9 +243,7 @@ async function promptAndInstall(engine: MorphaseEngine, backendId: string): Prom
   console.log(formatDoctorReport(report));
   console.log("");
 
-  if (!engine.getConfig().allowPackageManagerDelegation) {
-    console.log(packageManagerDelegationDisabledMessage());
-    console.log(`Install it manually with: ${command}`);
+  if (!command) {
     return false;
   }
 
@@ -335,14 +362,15 @@ async function printBackendHints(
 ) {
   const report = await engine.doctorBackend(backendId);
   const hints = mode === "install" ? report.installHints : report.updateHints;
+  const hint = hints[0];
 
-  if (hints.length === 0) {
+  if (!hint) {
     console.log(`No ${mode} hints are available for ${backendId}.`);
     return;
   }
 
-  const command = hints[0]?.command;
-  console.log(`${mode} hint for ${backendId}: ${command ?? hints[0]?.manager ?? "manual"}`);
+  const command = primaryHintCommand(hint);
+  console.log(`${mode} hint for ${backendId}: ${installHintSummary(hint)}`);
 
   if (!run || !command) {
     return;
@@ -352,15 +380,18 @@ async function printBackendHints(
     throw new Error(packageManagerDelegationDisabledMessage());
   }
 
-  if (containsShellOperators(command)) {
+  if (!canAutoInstall(hint, {
+    delegationEnabled: engine.getConfig().allowPackageManagerDelegation,
+    interactive: Boolean(process.stdin.isTTY)
+  })) {
     throw new Error(
-      "Morphase will not execute compound install commands automatically. Run the printed command manually."
+      "Morphase can only delegate install and update commands when a detected package manager is available in an interactive terminal."
     );
   }
 
-  if (!process.stdin.isTTY) {
+  if (containsShellOperators(command)) {
     throw new Error(
-      "Package-manager delegation requires an interactive terminal. Run the command manually: " + command
+      "Morphase will not execute compound install commands automatically. Run the printed command manually."
     );
   }
 

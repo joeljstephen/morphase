@@ -24,7 +24,8 @@ function createPlugin(plugin: Partial<MorphasePlugin> & Pick<MorphasePlugin, "id
     capabilities: plugin.capabilities ?? (() => []),
     detect: plugin.detect ?? (async () => ({ installed: true, command: plugin.id })),
     verify: plugin.verify ?? (async () => ({ ok: true, issues: [], warnings: [] })),
-    getInstallHints: plugin.getInstallHints ?? (() => []),
+    getInstallStrategies: plugin.getInstallStrategies ?? (() => []),
+    getUpdateStrategies: plugin.getUpdateStrategies,
     plan:
       plugin.plan ??
       (async () => ({
@@ -413,7 +414,7 @@ describe("Planner", () => {
         ],
         detect: async () => ({ installed: false, reason: "summarize not found" }),
         verify: async () => ({ ok: false, issues: ["not installed"], warnings: [] }),
-        getInstallHints: () => [{ manager: "brew", command: "npm i -g @steipete/summarize" }],
+        getInstallStrategies: () => [{ kind: "package-manager", manager: "npm", command: "npm i -g @steipete/summarize" }],
         plan: async () => null
       }),
       createPlugin({
@@ -432,7 +433,7 @@ describe("Planner", () => {
         ],
         detect: async () => ({ installed: false, reason: "yt-dlp not found" }),
         verify: async () => ({ ok: false, issues: ["not installed"], warnings: [] }),
-        getInstallHints: () => [{ manager: "brew", command: "brew install yt-dlp" }],
+        getInstallStrategies: () => [{ kind: "package-manager", manager: "brew", command: "brew install yt-dlp" }],
         plan: async () => null
       })
     ]);

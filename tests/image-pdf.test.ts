@@ -9,13 +9,24 @@ import { Planner } from "../packages/engine/src/planner/planner.js";
 import { PluginRegistry } from "../packages/engine/src/registry/plugin-registry.js";
 import { normalizeRequest } from "../packages/engine/src/planner/normalize-request.js";
 import { enrichError } from "../packages/engine/src/executor/executor.js";
-import type { MorphaseConfig, MorphasePlugin, PlanRequest } from "../packages/shared/src/index.js";
+import { resolveInstallHints, type MorphaseConfig, type MorphasePlugin, type PlanRequest, type RuntimeEnvironment } from "../packages/shared/src/index.js";
 
 const baseConfig: MorphaseConfig = {
   offlineOnly: false,
   preferredBackends: {},
   debug: false,
   allowPackageManagerDelegation: false
+};
+
+const macosEnvironment: RuntimeEnvironment = {
+  os: "macos",
+  packageManagers: ["brew", "pipx", "pip", "npm"]
+};
+
+const linuxEnvironment: RuntimeEnvironment = {
+  os: "linux",
+  distro: "ubuntu",
+  packageManagers: ["apt", "pipx", "pip", "npm"]
 };
 
 function createPlugin(plugin: Partial<MorphasePlugin> & Pick<MorphasePlugin, "id" | "name" | "priority">): MorphasePlugin {
@@ -27,7 +38,8 @@ function createPlugin(plugin: Partial<MorphasePlugin> & Pick<MorphasePlugin, "id
     capabilities: plugin.capabilities ?? (() => []),
     detect: plugin.detect ?? (async () => ({ installed: true, command: plugin.id })),
     verify: plugin.verify ?? (async () => ({ ok: true, issues: [], warnings: [] })),
-    getInstallHints: plugin.getInstallHints ?? (() => []),
+    getInstallStrategies: plugin.getInstallStrategies ?? (() => []),
+    getUpdateStrategies: plugin.getUpdateStrategies,
     plan:
       plugin.plan ??
       (async () => ({
@@ -150,13 +162,13 @@ describe("img2pdf plugin", () => {
   });
 
   it("returns install hints for macOS", () => {
-    const hints = img2pdfPlugin.getInstallHints("macos");
+    const hints = resolveInstallHints(img2pdfPlugin.getInstallStrategies(), macosEnvironment);
     expect(hints.length).toBeGreaterThan(0);
     expect(hints[0]?.command).toContain("pip");
   });
 
   it("returns install hints for Linux", () => {
-    const hints = img2pdfPlugin.getInstallHints("linux");
+    const hints = resolveInstallHints(img2pdfPlugin.getInstallStrategies(), linuxEnvironment);
     expect(hints.length).toBeGreaterThan(0);
     expect(hints[0]?.command).toContain("pip");
   });
@@ -324,13 +336,13 @@ describe("poppler plugin", () => {
   });
 
   it("returns install hints for macOS", () => {
-    const hints = popplerPlugin.getInstallHints("macos");
+    const hints = resolveInstallHints(popplerPlugin.getInstallStrategies(), macosEnvironment);
     expect(hints.length).toBeGreaterThan(0);
     expect(hints[0]?.command).toContain("poppler");
   });
 
   it("returns install hints for Linux", () => {
-    const hints = popplerPlugin.getInstallHints("linux");
+    const hints = resolveInstallHints(popplerPlugin.getInstallStrategies(), linuxEnvironment);
     expect(hints.length).toBeGreaterThan(0);
     expect(hints[0]?.command).toContain("poppler-utils");
   });
@@ -477,7 +489,7 @@ describe("planner selection for image/pdf routes", () => {
         ],
         detect: async () => ({ installed: false, reason: "img2pdf not found" }),
         verify: async () => ({ ok: false, issues: ["not installed"], warnings: [] }),
-        getInstallHints: () => [{ manager: "manual", command: "pip install img2pdf" }],
+        getInstallStrategies: () => [{ kind: "manual", label: "Install img2pdf manually" }],
         plan: async () => null
       })
     ]);
@@ -509,7 +521,7 @@ describe("planner selection for image/pdf routes", () => {
         ],
         detect: async () => ({ installed: false, reason: "pdftocairo not found" }),
         verify: async () => ({ ok: false, issues: ["not installed"], warnings: [] }),
-        getInstallHints: () => [{ manager: "brew", command: "brew install poppler" }],
+        getInstallStrategies: () => [{ kind: "package-manager", manager: "brew", command: "brew install poppler" }],
         plan: async () => null
       })
     ]);
