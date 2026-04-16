@@ -15,4 +15,3 @@ Brief description of the change and why it's needed.
 - [ ] `pnpm build` passes
 - [ ] `pnpm typecheck` passes
 - [ ] `pnpm test` passes
-- [ ] No removed server or legacy references were reintroduced
