@@ -189,6 +189,10 @@ function containsShellOperators(command: string): boolean {
   return /(^|[\s])(?:&&|\|\||\||;)(?=[\s]|$)/.test(command);
 }
 
+function packageManagerDelegationDisabledMessage(): string {
+  return "Package-manager delegation is disabled. Set allowPackageManagerDelegation=true in ~/.morphase/config.json before using --run.";
+}
+
 async function promptAndInstall(engine: MorphaseEngine, backendId: string): Promise<boolean> {
   const report = await engine.doctorBackend(backendId);
   const hints = report.installHints;
@@ -209,6 +213,12 @@ async function promptAndInstall(engine: MorphaseEngine, backendId: string): Prom
   console.log("");
   console.log(formatDoctorReport(report));
   console.log("");
+
+  if (!engine.getConfig().allowPackageManagerDelegation) {
+    console.log(packageManagerDelegationDisabledMessage());
+    console.log(`Install it manually with: ${command}`);
+    return false;
+  }
 
   const answer = await prompts({
     type: "confirm",
@@ -339,9 +349,7 @@ async function printBackendHints(
   }
 
   if (!engine.getConfig().allowPackageManagerDelegation) {
-    throw new Error(
-      "Package-manager delegation is disabled. Set allowPackageManagerDelegation=true in ~/.morphase/config.json before using --run."
-    );
+    throw new Error(packageManagerDelegationDisabledMessage());
   }
 
   if (containsShellOperators(command)) {

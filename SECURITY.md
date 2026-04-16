@@ -1,22 +1,32 @@
 # Security Policy
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-Do not file public issues for security vulnerabilities.
+**Please do not file public GitHub issues for security vulnerabilities.**
 
-Email security concerns to the project maintainers directly or use GitHub's
-private vulnerability reporting feature if enabled on the repository.
+To report a vulnerability, use one of these channels, in order of preference:
+
+1. **GitHub private vulnerability reporting** on this repository, if enabled. This is the preferred channel.
+2. **Contact the maintainers privately** through the channel documented on the repository (for example, a private security contact listed in the repo's README or GitHub profile).
+
+Please include enough detail for us to reproduce the issue, along with any impact assessment you've done.
 
 ## Scope
 
-Morphase shells out to external tools (FFmpeg, yt-dlp, Pandoc, etc.).
-Vulnerabilities in those tools should be reported to their respective projects.
+Morphase is a CLI that shells out to external tools (FFmpeg, Pandoc, yt-dlp, LibreOffice, etc.). Vulnerabilities in those tools should be reported upstream to the respective projects.
 
-Morphase-specific concerns include:
-- Command injection through user input
-- Path traversal in output path handling
-- Arbitrary code execution through malicious config files
+In-scope for Morphase:
 
-## Supported Versions
+- Command injection through user-supplied input (file paths, URLs, CLI flags).
+- Path traversal in output path handling.
+- Arbitrary code execution through malicious config files.
+- Unsafe defaults that cause Morphase to run untrusted code without user consent.
 
-Only the latest release is supported.
+Out of scope:
+
+- Bugs in third-party binaries Morphase invokes.
+- Denial-of-service caused by very large or adversarial inputs to those external tools.
+
+## Supported versions
+
+Only the latest release is supported. Please upgrade before reporting issues where possible.

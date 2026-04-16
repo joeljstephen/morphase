@@ -103,6 +103,33 @@ describe("normalizeRequest", () => {
     expect(normalized.planRequest.output.endsWith(".txt")).toBe(true);
   });
 
+  it("sanitizes derived output names for URL inputs", () => {
+    const normalized = normalizeRequest(
+      {
+        input: "https://example.com/article?v=..%2F..%2Foutside",
+        to: "txt"
+      },
+      { offlineOnly: false }
+    );
+
+    expect(normalized.planRequest.output).toBe(path.join(fixtureDir, "outside.txt"));
+  });
+
+  it("keeps URL-derived output paths inside an explicit output directory", () => {
+    const outputDir = path.join(fixtureDir, "downloads");
+
+    const normalized = normalizeRequest(
+      {
+        input: "https://example.com/files/%2E%2E/%2E%2E/secret.pdf",
+        to: "pdf",
+        output: `${outputDir}/`
+      },
+      { offlineOnly: false }
+    );
+
+    expect(normalized.planRequest.output).toBe(path.join(outputDir, "secret.pdf"));
+  });
+
   it("respects explicit from override for youtube-url", () => {
     const normalized = normalizeRequest(
       {

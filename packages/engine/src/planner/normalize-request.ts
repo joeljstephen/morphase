@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { deriveOperationOutputPath, deriveOutputPath, extensionForResourceKind, inferResourceKind, isUrl, resourceKinds } from "@morphase/shared";
+import { deriveOperationOutputPath, deriveOutputPath, deriveUrlOutputStem, extensionForResourceKind, inferResourceKind, isUrl, resourceKinds } from "@morphase/shared";
 import type { JobRequest, PlanRequest, ResourceKind, Route } from "@morphase/shared";
 
 import { createError } from "../errors/morphase-error.js";
@@ -73,15 +73,7 @@ function deriveOutputInDir(dir: string, input: string | string[], to: ResourceKi
   const ext = extensionForResourceKind(to);
 
   if (isUrl(first)) {
-    try {
-      const parsed = new URL(first);
-      const name = parsed.searchParams.get("v")
-        || parsed.pathname.split("/").filter(Boolean).pop()
-        || "output";
-      return path.join(dir, `${name}${ext}`);
-    } catch {
-      return path.join(dir, `output${ext}`);
-    }
+    return path.join(dir, `${deriveUrlOutputStem(first, ext)}${ext}`);
   }
 
   const filePath = path.parse(first);

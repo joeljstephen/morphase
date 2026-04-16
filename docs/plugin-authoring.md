@@ -1,8 +1,32 @@
 # Plugin Authoring
 
+Morphase plugins isolate backend-specific behavior. A plugin describes what one external tool can do, how to detect it, and how to build a command line for a given request. The engine owns routing and execution; plugins just declare capabilities and produce plans.
+
 Builtin plugins live in `packages/plugins/<plugin>/src/index.ts`.
 
-## Plugin Contract
+## Official vs community plugins
+
+Not every plugin belongs in the main repo. As a rough guide:
+
+**A plugin is a good fit for this repo if it:**
+
+- Wraps a widely available, stable, open-source tool (FFmpeg, Pandoc, ImageMagick, etc.).
+- Is installable through at least one of the officially supported package managers (Homebrew, WinGet, apt-get).
+- Covers a route the core Morphase audience will actually use.
+- Has predictable output and does not require service accounts, API keys, or network configuration to function.
+- Is reasonably behaved across macOS, Windows, and Linux, or clearly scopes itself to a subset.
+
+**A plugin is usually better as a community or out-of-tree plugin if it:**
+
+- Talks to a paid or proprietary service.
+- Requires user credentials, API keys, or OAuth.
+- Targets a niche format or workflow most users won't need.
+- Has heavy or platform-specific install requirements that can't be documented with a one-line install hint.
+- Is experimental or changes often.
+
+Community plugins will eventually be loadable out-of-tree via the plugin SDK. In the meantime, if you're unsure whether your plugin fits the main repo, open a discussion or draft PR and we'll figure it out together.
+
+## Plugin contract
 
 Every plugin implements the `MorphasePlugin` interface:
 
@@ -25,66 +49,62 @@ interface MorphasePlugin {
 }
 ```
 
-## Required Fields
+### Required fields
 
-- **`id`** — Unique identifier used in routing, CLI flags (`--backend <id>`), and logging (e.g. `"ffmpeg"`)
-- **`name`** — Human-readable display name (e.g. `"FFmpeg"`)
-- **`priority`** — Default ordering hint. Higher values are preferred when scores are equal. Range: 0–100
-- **`minimumVersion`** — Semver string. If the detected version is below this, the planner applies a penalty
-- **`optional`** — If `true`, the plugin is treated as opt-in (e.g. yt-dlp, whisper, summarize)
-- **`commonProblems`** — Array of known issues shown in `morphase doctor` output
+- **`id`** — Unique identifier used in routing, CLI flags (`--backend <id>`), and logs (e.g. `"ffmpeg"`).
+- **`name`** — Human-readable display name (e.g. `"FFmpeg"`).
+- **`priority`** — Default ordering hint (0–100). Higher wins when scores tie.
+- **`minimumVersion`** — Semver string. Lower detected versions get a score penalty.
+- **`optional`** — `true` for opt-in plugins (e.g. `ytdlp`, `whisper`, `summarize`).
+- **`commonProblems`** — Known issues surfaced by `morphase doctor`.
 
-## Required Methods
+### Required methods
 
-### `capabilities()`
+#### `capabilities()`
 
-Returns an array of `Capability` objects describing what the plugin can handle. Each capability includes:
+Returns the set of routes this plugin can handle:
 
 ```ts
 {
   kind: "conversion" | "transform" | "fetch" | "extract";
   from: ResourceKind;
-  to?: ResourceKind;           // undefined for operations like compress/merge
-  operation?: string;          // for transform/extract operations (e.g. "compress", "merge")
+  to?: ResourceKind;           // omitted for operations like compress / merge
+  operation?: string;          // for transform / extract operations
   quality: "high" | "medium" | "best_effort";
   offline: boolean;
-  platform?: Platform[];       // restrict to specific platforms
+  platform?: Platform[];       // restrict to specific OSes
 }
 ```
 
 The planner uses these to match a route to candidate plugins via `Registry.findCandidates()`.
 
-### `detect(platform)`
+#### `detect(platform)`
 
-Checks whether the external tool is installed. Returns a `DetectionResult`:
+Checks whether the external tool is installed.
 
 ```ts
 { detected: true; version?: string; command: string }
 | { detected: false }
 ```
 
-Use `detectBinary()` from `packages/plugins/src/helpers.ts` or `detectFirstAvailableCommand()` from `@morphase/plugin-sdk` to probe for binaries.
+Use `detectBinary()` from `packages/plugins/src/helpers.ts`, or `detectFirstAvailableCommand()` from `@morphase/plugin-sdk`, to probe for binaries.
 
-### `verify(platform)`
+#### `verify(platform)`
 
-Runs a deeper health check beyond detection. Returns a `VerificationResult`:
+A deeper health check beyond detection:
 
 ```ts
-{
-  ok: boolean;
-  issues?: string[];
-  warnings?: string[];
-}
+{ ok: boolean; issues?: string[]; warnings?: string[] }
 ```
 
-Use this to check for delegate support (e.g. ImageMagick's HEIC/WebP delegates), dependency availability (e.g. yt-dlp needing ffmpeg for MP3), or version-specific bugs.
+Good uses: checking delegate support (e.g. ImageMagick's HEIC/WebP delegates), dependency availability (e.g. yt-dlp needing ffmpeg for MP3), or version-specific bugs.
 
-### `getInstallHints(platform)` / `getUpdateHints(platform)`
+#### `getInstallHints(platform)` / `getUpdateHints(platform)`
 
-Returns per-platform install instructions. Use `packageHints()` from helpers:
+Per-platform install instructions. Use `packageHints()`:
 
 ```ts
-getInstallHints(platform: Platform): InstallHint[] {
+getInstallHints(platform) {
   return packageHints(
     platform,
     { command: "brew install ffmpeg" },
@@ -94,9 +114,9 @@ getInstallHints(platform: Platform): InstallHint[] {
 }
 ```
 
-### `plan(request)`
+#### `plan(request)`
 
-Builds an `ExecutionPlan` for the given request, or returns `null` if the plugin cannot handle it:
+Builds an `ExecutionPlan` for the given request, or returns `null` if this plugin can't handle it:
 
 ```ts
 {
@@ -114,47 +134,61 @@ Builds an `ExecutionPlan` for the given request, or returns `null` if the plugin
 ```
 
 Key fields:
-- **`command`** and **`args`** — Passed directly to `execa`. Never shell-concatenate
-- **`outputMapping`** — For tools that generate their own output filenames (e.g. LibreOffice). The executor renames these to the user's expected path
-- **`stdoutFile`** — Write stdout to a file instead of discarding (used by trafilatura, summarize)
-- **`tempDirs`** — Temp directories the executor will clean up after execution
 
-### `explain(request)`
+- **`command`** / **`args`** — Passed directly to `execa`. Never shell-concatenate.
+- **`outputMapping`** — For tools that generate output under their own filenames (e.g. LibreOffice). The executor renames those files to the user's expected path.
+- **`stdoutFile`** — Write stdout to a file instead of discarding it (used by `trafilatura`, `summarize`).
+- **`tempDirs`** — Temp directories the executor will clean up after execution.
+
+#### `explain(request)`
 
 Returns a human-readable explanation of why this plugin was chosen and what it will do. Shown by `morphase explain`.
 
 ## Plugin SDK
 
-`@morphase/plugin-sdk` provides helpers to reduce boilerplate:
+`@morphase/plugin-sdk` provides the minimum helpers to author a plugin:
 
-- **`definePlugin(plugin)`** — Identity function that ensures type correctness at compile time
-- **`detectFirstAvailableCommand(commands, versionArgs)`** — Tries multiple command names, returns the first that responds
-- **`installHintByPlatform(platform, hints)`** — Selects the correct hint for the current OS
+- **`definePlugin(plugin)`** — Identity function that enforces the `MorphasePlugin` type at compile time.
+- **`detectFirstAvailableCommand(commands, versionArgs)`** — Tries multiple command names and returns the first that responds.
+- **`installHintByPlatform(platform, hints)`** — Selects the correct hint record for the current OS.
 
-## Shared Plugin Helpers
+## Shared plugin helpers
 
-`packages/plugins/src/helpers.ts` provides additional utilities:
+`packages/plugins/src/helpers.ts` adds conveniences used by most builtin plugins:
 
-- **`detectBinary(commands, versionArgs)`** — Wraps `detectFirstAvailableCommand` with semver parsing
-- **`packageHints(macos, windows, linux, notes?)`** — Creates a per-platform install hint record
-- **`verifyBinary(commands, args)`** — Simple binary verification
-- **`libreOfficeConvert(input, output, format)`** — Builds a LibreOffice execution plan with output mapping
-- **`whisperGeneratedTranscript(input, output)`** — Builds a Whisper execution plan with output mapping
+- **`detectBinary(commands, versionArgs)`** — `detectFirstAvailableCommand` plus semver parsing.
+- **`packageHints(macos, windows, linux, notes?)`** — Per-platform install hint record.
+- **`verifyBinary(commands, args)`** — Simple binary verification.
+- **`libreOfficeConvert(input, output, format)`** — Builds a LibreOffice execution plan with output mapping.
+- **`whisperGeneratedTranscript(input, output)`** — Builds a Whisper execution plan with output mapping.
 
-## Plugin Rules
+## Plugin rules
 
-- Keep routing decisions out of CLI files
-- Keep global routing decisions out of plugins (plugins declare capabilities; the planner decides)
-- Avoid mutating system state without explicit user intent
-- Keep backend-specific quirks, warnings, and install metadata inside the plugin
-- Commands and args are passed as separate arrays — never shell-concatenate to prevent injection
-- Return `null` from `plan()` if the request is not something this plugin can handle
+- Keep routing decisions out of the CLI.
+- Keep global routing decisions out of plugins — plugins declare capabilities; the planner decides.
+- Don't mutate system state without explicit user intent.
+- Keep backend-specific quirks, warnings, and install metadata inside the plugin.
+- Always pass commands and args as separate arrays — never shell-concatenate, to prevent injection.
+- Return `null` from `plan()` for requests this plugin can't handle; don't throw.
 
-## Example Plugin Skeleton
+## Example skeleton
 
 ```ts
-import { definePlugin, detectFirstAvailableCommand, installHintByPlatform } from "@morphase/plugin-sdk";
-import type { MorphasePlugin, Capability, PlanRequest, ExecutionPlan, Platform, DetectionResult, VerificationResult, InstallHint } from "@morphase/shared";
+import {
+  definePlugin,
+  detectFirstAvailableCommand,
+  installHintByPlatform,
+} from "@morphase/plugin-sdk";
+import type {
+  MorphasePlugin,
+  Capability,
+  PlanRequest,
+  ExecutionPlan,
+  Platform,
+  DetectionResult,
+  VerificationResult,
+  InstallHint,
+} from "@morphase/shared";
 
 export const myPlugin = definePlugin({
   id: "mytool",
@@ -200,10 +234,11 @@ export const myPlugin = definePlugin({
 });
 ```
 
-## Adding a New Plugin
+## Adding a new plugin
 
-1. Create `packages/plugins/<id>/src/index.ts`
-2. Implement the `MorphasePlugin` interface using `definePlugin()`
-3. Export the plugin from `packages/plugins/src/index.ts` and add it to the `builtinPlugins` array
-4. Add tests in `tests/plugins.test.ts` to verify metadata and capabilities
-5. Run `pnpm build && pnpm typecheck && pnpm test`
+1. Create `packages/plugins/<id>/src/index.ts`.
+2. Implement the `MorphasePlugin` interface using `definePlugin()`.
+3. Export the plugin from `packages/plugins/src/index.ts` and add it to the `builtinPlugins` array.
+4. Add tests in `tests/plugins.test.ts` that verify metadata and capabilities.
+5. Run `pnpm build && pnpm typecheck && pnpm test`.
+6. Open a PR. Include a brief note on which route(s) it adds and why the plugin belongs in the main repo (see the [Official vs community](#official-vs-community-plugins) section above).

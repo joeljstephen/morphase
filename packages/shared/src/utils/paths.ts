@@ -31,6 +31,55 @@ const extensionByKind: Record<ResourceKind, string> = {
   transcript: ".txt"
 };
 
+function defaultWorkingDirectory(): string {
+  return process.env.MORPHASE_CWD || process.env.INIT_CWD || process.cwd();
+}
+
+function decodeUrlComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+export function sanitizeDerivedStem(value: string, fallback = "output"): string {
+  const decoded = decodeUrlComponent(value);
+  const tail = decoded.split(/[\\/]+/).filter(Boolean).pop() ?? fallback;
+  const sanitized = tail
+    .replace(/[<>:"|?*\u0000-\u001f]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/^\.+/, "")
+    .replace(/\.+$/, "")
+    .replace(/-+/g, "-")
+    .trim();
+
+  if (!sanitized || sanitized === "." || sanitized === "..") {
+    return fallback;
+  }
+
+  return sanitized.slice(0, 120);
+}
+
+export function deriveUrlOutputStem(input: string, ext?: string, fallback = "output"): string {
+  try {
+    const parsed = new URL(input);
+    const candidate = parsed.searchParams.get("v")
+      || parsed.pathname.split("/").filter(Boolean).pop()
+      || fallback;
+    const sanitized = sanitizeDerivedStem(candidate, fallback);
+
+    if (ext && sanitized.toLowerCase().endsWith(ext.toLowerCase())) {
+      const trimmed = sanitized.slice(0, -ext.length).replace(/[.\s-]+$/, "");
+      return trimmed || fallback;
+    }
+
+    return sanitized;
+  } catch {
+    return fallback;
+  }
+}
+
 export function extensionForResourceKind(kind: ResourceKind): string {
   return extensionByKind[kind];
 }
@@ -40,17 +89,11 @@ export function deriveOutputPath(input: string | string[], to: ResourceKind): st
   const ext = extensionForResourceKind(to);
 
   if (isUrl(first)) {
-    try {
-      const parsed = new URL(first);
-      const videoId = parsed.searchParams.get("v") || parsed.pathname.split("/").filter(Boolean).pop() || "output";
-      return path.join(process.cwd(), `${videoId}${ext}`);
-    } catch {
-      return path.join(process.cwd(), `output${ext}`);
-    }
+    return path.join(defaultWorkingDirectory(), `${deriveUrlOutputStem(first, ext)}${ext}`);
   }
 
   const filePath = path.parse(first);
-  return path.join(filePath.dir || process.cwd(), `${filePath.name}${ext}`);
+  return path.join(filePath.dir || defaultWorkingDirectory(), `${filePath.name}${ext}`);
 }
 
 export function deriveOperationOutputPath(input: string | string[], from: ResourceKind): string {
@@ -62,7 +105,7 @@ export function deriveOperationOutputPath(input: string | string[], from: Resour
   }
 
   const filePath = path.parse(first);
-  return path.join(filePath.dir || process.cwd(), `${filePath.name}_compressed${ext}`);
+  return path.join(filePath.dir || defaultWorkingDirectory(), `${filePath.name}_compressed${ext}`);
 }
 
 export async function ensureDirectoryExists(directory: string): Promise<void> {

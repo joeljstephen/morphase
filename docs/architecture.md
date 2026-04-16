@@ -1,361 +1,228 @@
 # Architecture
 
-## Guiding Principle
+This document is for people who want to understand how Morphase is put together — contributors, plugin authors, or anyone debugging a routing decision.
 
-> **One shared engine, CLI-first workflows, pluggable backends.**
+The first half is written for newcomers. Later sections go deeper into the engine internals.
 
-The CLI is intentionally thin. The engine owns routing, planning, execution, doctoring, and job tracking. Plugins isolate backend-specific behavior. Shared types and schemas keep the public surface consistent.
+## What Morphase is
 
----
+Morphase is a **conversion router**. Given a file (or URL) and a target format, it picks an installed external tool, builds a plan, runs it, and validates the output.
 
-## High-Level System Diagram
+It is a CLI only. Core routes run entirely on your machine and don't require a background process or network connection.
 
+## Core design principle
+
+> **One shared engine, a thin CLI, pluggable backends.**
+
+- The **CLI** is a small Commander-based front end. It collects a request and displays results.
+- The **engine** owns routing, planning, execution, diagnostics, and job tracking.
+- **Plugins** isolate backend-specific behavior. Each plugin knows how to detect one external tool, describe what it can do, and build an `ExecutionPlan` for a given request.
+- **Shared types and schemas** keep the public surface consistent across packages.
+
+Morphase itself never performs a conversion. It spawns external binaries like `ffmpeg`, `pandoc`, or `libreoffice` and hands back the results.
+
+## High-level view
+
+```mermaid
+graph TB
+    User((User))
+
+    subgraph Entry
+      CLI["CLI<br/>Commander + Interactive Wizard"]
+    end
+
+    subgraph "Morphase Engine"
+      Engine["MorphaseEngine<br/>Async factory entry point"]
+
+      subgraph "Request Pipeline"
+        Normalize["normalizeRequest<br/>Infer types, resolve paths, identify route"]
+        Plan["Planner<br/>Score candidates, pick a plugin or pipeline"]
+        Exec["Executor<br/>Run the plan, validate outputs"]
+      end
+
+      subgraph "Supporting Services"
+        Registry["PluginRegistry"]
+        JobMgr["JobManager"]
+        Doctor["Doctor"]
+        Platform["Platform"]
+        Config["Config"]
+        Logger["Logger"]
+      end
+
+      Pipelines["Curated Pipelines"]
+    end
+
+    subgraph "Plugin Layer"
+      Plugins["14 builtin plugins<br/>(pandoc, ffmpeg, libreoffice, ...)"]
+    end
+
+    subgraph "External Tools"
+      Tools["System binaries<br/>(ffmpeg, pandoc, soffice, ...)"]
+    end
+
+    User --> CLI --> Engine
+    Engine --> Normalize --> Plan --> Exec
+    Plan --> Registry --> Plugins
+    Plan --> Pipelines
+    Plugins -.-> Tools
+    Engine --> Config
+    Engine --> Doctor
+    Engine --> Platform
+    Engine --> JobMgr
+    Engine --> Logger
 ```
-+-----------+    +-------------------+    +---------------------+    +---------------------+
-|   CLI     | -> |   Morphase Engine  | -> |   Plugin Layer      | -> | External Binaries / |
-| (client)  |    |                   |    | 14 builtin plugins  |    | Local Tooling       |
-+-----------+    | - registry        |    +---------------------+    +---------------------+
-                 | - planner         |
-                 | - executor        |
-                 | - doctor          |
-                 | - job manager     |
-                 | - config          |
-                 | - platform        |
-                 | - logger          |
-                 +-------------------+
-```
 
----
+## Request lifecycle in plain English
 
-## Monorepo Structure
+When you run `morphase convert deck.pptx deck.pdf`:
 
-morphase uses a **pnpm workspace** monorepo. The root `pnpm-workspace.yaml` declares `apps/*` and `packages/*` as workspace members.
+1. **Collect.** The CLI parses arguments into a `JobRequest`.
+2. **Normalize.** The engine resolves paths, infers the input kind (`pptx`) from the extension, and identifies the route (`pptx → pdf`).
+3. **Find candidates.** The plugin registry returns every plugin capable of that route on the current OS (`libreoffice`, in this case).
+4. **Score.** Each candidate gets a numeric score based on install status, health, quality, offline capability, and user preferences.
+5. **Plan.** The highest-scoring installed plugin produces an `ExecutionPlan` — a command, args, temp dirs, expected outputs.
+6. **Execute.** The executor spawns the tool via `execa`, captures stdout/stderr, applies any output renames, validates the outputs exist, and cleans up temp directories.
+7. **Return.** A `JobResult` flows back to the CLI, which prints a human-readable summary.
+
+If no plugin can handle a route directly, the planner falls back to **curated pipelines** that chain plugins (e.g. Markdown → DOCX via Pandoc, then DOCX → PDF via LibreOffice).
+
+If a plugin is missing, the engine throws a structured error with install hints for the current OS, not a raw command-not-found.
+
+## Monorepo layout
+
+Morphase is a pnpm workspace.
 
 ```
 morphase/
   apps/
     cli/                    # Interactive and direct CLI (commander + prompts)
-
   packages/
     shared/                 # Types, schemas, constants, utilities
-      src/
-        types/index.ts      # All domain types
-        schemas/config.ts   # Zod config schema
-        schemas/job.ts      # Zod job request schema
-        constants/routes.ts # ROUTE_PREFERENCES map
-        utils/paths.ts      # Path derivation helpers
-        utils/resources.ts  # Resource kind inference, URL detection
-        utils/process.ts    # spawn wrapper (runCommandCapture)
-        utils/version.ts    # Semver parse + compare
-
-    engine/                 # Core routing, planning, execution engine
-      src/
-        index.ts            # MorphaseEngine class (main entry point)
-        registry/           # Plugin registry
-        planner/            # Route planning + scoring + pipelines
-        executor/           # Process execution + output validation
-        doctor/             # Backend health inspection
-        jobs/               # In-memory job tracking
-        config/             # Config file loading (~/.morphase/config.json)
-        platform/           # OS detection + package manager detection
-        errors/             # MorphaseRuntimeError
-        logging/            # Structured logger
-
     plugin-sdk/             # Plugin authoring helpers
-      src/index.ts          # definePlugin, detectFirstAvailableCommand, installHintByPlatform
-
     plugins/                # All builtin backend plugins
-      src/
-        index.ts            # Re-exports all plugins + builtinPlugins array
-        helpers.ts          # Shared plugin utilities
-      pandoc/               # Document/markup conversion
-      libreoffice/          # Office-to-PDF conversion
-      ffmpeg/               # Audio/video conversion + compression
-      imagemagick/          # Image conversion
-      qpdf/                 # PDF merge/split/optimize
-      trafilatura/          # URL-to-markdown/text extraction
-      markitdown/           # File-to-markdown extraction
-      ytdlp/                # YouTube/media URL download
-      whisper/              # Local transcription
-      summarize/            # YouTube transcript extraction
-      jpegoptim/            # JPEG compression
-      optipng/              # PNG compression
-      img2pdf/              # Image(s) to PDF conversion
-      poppler/              # PDF to image rendering + embedded image extraction
-
-  docs/                     # Architecture, route matrix, support matrix, plugin authoring
-  tests/                    # Planner, plugin, normalize-request, and route tests
+    engine/                 # Routing, planning, execution, doctor
+  docs/
+  tests/
 ```
 
----
-
-## Package Dependency Graph
+Dependency direction (leaves at the top):
 
 ```
-@morphase/shared          (leaf — zero workspace deps)
+@morphase/shared
     ^
-    |
-@morphase/plugin-sdk      (depends on @morphase/shared)
+@morphase/plugin-sdk
     ^
-    |
-@morphase/plugins         (depends on @morphase/shared + @morphase/plugin-sdk)
+@morphase/plugins
     ^
-    |
-@morphase/engine          (depends on @morphase/shared + @morphase/plugin-sdk + @morphase/plugins)
+@morphase/engine
     ^
-    |
-  +- morphase             (depends on @morphase/engine + @morphase/shared)
+morphase  (the CLI)
 ```
 
 Key external dependencies:
-- **zod** — config and job request validation (`@morphase/shared`)
-- **execa** — process spawning (`@morphase/engine`, `morphase`)
-- **commander** — CLI argument parsing (`morphase`)
-- **prompts** — interactive wizard (`morphase`)
 
----
+- **zod** — config and job-request validation
+- **execa** — process spawning
+- **commander** — CLI argument parsing
+- **prompts** — interactive wizard
 
-## Domain Model
+## Key engine components
 
-### Resource Kinds
-
-morphase reasons about normalized resource kinds, not just file extensions. Defined as a const array in `@morphase/shared`:
-
-`markdown`, `html`, `docx`, `pptx`, `xlsx`, `odt`, `ods`, `odp`, `pdf`, `txt`, `jpg`, `png`, `webp`, `heic`, `mp3`, `wav`, `mp4`, `mov`, `mkv`, `url`, `youtube-url`, `media-url`, `subtitle`, `transcript`
-
-Resource kind inference (`inferResourceKind`) works by:
-1. Checking if input is a YouTube URL (hostname matching)
-2. Checking if input matches a known media host (Instagram, TikTok, X, Reddit, etc.)
-3. Checking if input is any HTTP(S) URL
-4. Falling back to file extension mapping
-
-### Routes
-
-A route is either a **conversion** or an **operation**:
-
-```ts
-type Route =
-  | { kind: "conversion"; from: ResourceKind; to: ResourceKind }
-  | { kind: "operation";  resource: ResourceKind; action: string }
-```
-
-Examples:
-- `{ kind: "conversion", from: "pptx", to: "pdf" }`
-- `{ kind: "operation", resource: "pdf", action: "merge" }`
-
-Routes are identified by a string key: `"pptx->pdf"` for conversions, `"pdf:merge"` for operations.
-
-### Core Request/Result Types
-
-| Type | Purpose |
-|------|---------|
-| `JobRequest` | User-facing request: input, from/to, operation, output, options, backendPreference, flags |
-| `PlanRequest` | Internal normalized request with resolved route, platform, and offlineOnly |
-| `ExecutionPlan` | What to run: command, args, env, cwd, tempDirs, expectedOutputs, outputMapping |
-| `PlannedExecution` | Full plan result: selected plugin, explanation, warnings, steps, fallbacks |
-| `JobResult` | Final result: jobId, status, outputPaths, logs, warnings, error, equivalentCommand |
-| `JobRecord` | In-memory job state: request, route, status, timestamps, logs, result |
-| `MorphaseError` | Structured error: code, message, likelyCause, suggestedFixes, rawStdout/Stderr |
-
----
-
-## Engine Internals
-
-The engine is the heart of Morphase. `MorphaseEngine` is the single entry point, constructed via the async factory `MorphaseEngine.create()`.
-
-### Initialization
+The engine is constructed via the async factory `MorphaseEngine.create()`:
 
 ```
 MorphaseEngine.create()
-  ├── loadMorphaseConfig()          // Reads ~/.morphase/config.json (falls back to defaults)
-  ├── new PluginRegistry(plugins) // Registers all builtin plugins
+  ├── loadMorphaseConfig()           // ~/.morphase/config.json (falls back to defaults)
+  ├── new PluginRegistry(plugins)    // Registers all builtin plugins
   ├── new Planner(registry, config)
   ├── new Logger(config.debug)
   ├── new Executor(logger)
   └── new Doctor()
 ```
 
-### Plugin Registry (`packages/engine/src/registry/plugin-registry.ts`)
+### Plugin registry
 
-The registry holds all registered plugins and provides query capabilities:
+Holds all registered plugins and answers queries:
 
-- **`list()`** — Returns all plugins sorted by descending priority
-- **`get(id)`** — Looks up a plugin by ID
-- **`capabilities()`** — Flattens all plugin capabilities into a unified list
-- **`findCandidates(route, platform)`** — Finds plugins whose capabilities match a given route and platform. For conversions, matches `from` + `to`. For operations, matches resource + operation.
+- `list()` — plugins sorted by descending priority
+- `get(id)` — lookup by ID
+- `capabilities()` — flattened capability list
+- `findCandidates(route, platform)` — plugins whose capabilities match a route on the current OS
 
-### Planner (`packages/engine/src/planner/planner.ts`)
+### Planner
 
-The planner takes a normalized `PlanRequest` and selects the best plugin or pipeline.
+Takes a normalized `PlanRequest` and returns a `PlannedExecution`.
 
-**Step 1: Request Normalization** (`normalize-request.ts`)
+1. **Normalize the request** (`normalize-request.ts`): resolve paths, infer resource kind, derive a default output path if none was given, and identify the route.
+2. **Score candidates**:
 
-The `normalizeRequest()` function transforms a `JobRequest` into a resolved `Route` and partial `PlanRequest`:
-- Resolves relative input/output paths against the invocation CWD
-- Infers `from` resource kind from the input (file extension or URL)
-- Derives default output paths from input name + target extension
-- For operations, ensures output path differs from input (appends `_compressed`)
+   | Factor                                   | Score     |
+   | ---------------------------------------- | --------- |
+   | Base (exact route match)                 | +50       |
+   | Preferred for route (config or defaults) | +20       |
+   | Plugin installed                         | +15       |
+   | Plugin verified healthy                  | +10       |
+   | Offline support when offline requested   | +15       |
+   | High-quality route                       | +10       |
+   | Medium-quality route                     | +5        |
+   | Best-effort route                        | −20       |
+   | Installed but unhealthy                  | −30       |
+   | Network required when offline requested  | rejected  |
 
-The `toPlanRequest()` function adds `platform` (from OS detection) and `offlineOnly` to produce a complete `PlanRequest`.
+3. **Build a plan**: try each installed candidate in rank order; the first non-null `plan()` wins. Fall back to curated pipelines if none succeed. Throw `UNSUPPORTED_ROUTE` if there is no path forward.
+4. **Generate an equivalent command** (e.g. `morphase convert deck.pptx deck.pdf`) so the CLI can echo what it would run.
 
-**Step 2: Candidate Scoring**
+### Executor
 
-For each candidate plugin from the registry, the planner evaluates a numeric score:
+Runs the planned steps and validates the result:
 
-| Factor | Score |
-|--------|-------|
-| Base (exact route match) | +50 |
-| Preferred for route (from ROUTE_PREFERENCES or config) | +20 |
-| Plugin installed | +15 |
-| Plugin verified healthy | +10 |
-| Offline support when offline requested | +15 |
-| High quality route | +10 |
-| Medium quality route | +5 |
-| Best effort route | -20 |
-| Installed but unhealthy | -30 |
-| Network required when offline requested | rejected (−∞) |
+1. If `dryRun`, log commands without executing.
+2. For each step: spawn the process via `execa` (with `reject: false`), capture logs, apply `outputMapping` (rename generated files), collect `expectedOutputs`.
+3. Validate that expected outputs actually exist on disk.
+4. Clean up temp directories (unless `--debug` or `--keep-temp`).
+5. Enrich known failure patterns in stderr (e.g. yt-dlp "sign in" → YouTube blocking; FFmpeg "does not contain any stream" → missing audio) into actionable `likelyCause` / `suggestedFixes`.
 
-Candidates are sorted by descending score. Non-finite scores are filtered out.
+### Doctor
 
-**Step 3: Plan Building**
+For each plugin, calls `detect()` and `verify()` and assembles a `BackendDoctorReport`: installed status, detected version, minimum version, verification issues, install and update hints for the current platform, and known common problems.
 
-1. If no candidates exist, check curated pipelines as a fallback
-2. If the top-ranked candidate is not installed, return `installNeeded: true`
-3. For each installed candidate (in rank order), call `plugin.plan(request)` — the first non-null plan wins
-4. If no plugin produces a plan, check curated pipelines again
-5. If still nothing, throw `UNSUPPORTED_ROUTE`
+Exposed as `morphase doctor`, `morphase backend list`, `morphase backend verify <id>`, `morphase backend install <id>`, and `morphase backend update <id>`.
 
-**Step 4: Pipeline Support** (`pipelines.ts`)
+### Job manager
 
-Curated multi-step pipelines allow chaining plugins when no direct route exists:
+Every operation is tracked as a job with a UUID in an in-memory `Map<string, JobRecord>`. Lifecycle: `queued` → `planned` → `running` → `success | failed | cancelled`.
 
-| Pipeline ID | Steps |
-|-------------|-------|
-| `markdown-to-pdf-via-docx` | pandoc (md→docx) → libreoffice (docx→pdf) |
-| `html-to-pdf-via-docx` | pandoc (html→docx) → libreoffice (docx→pdf) |
-| `docx-to-markdown-via-pdf` | libreoffice (docx→pdf) → markitdown (pdf→md) |
-| `pdf-to-txt-via-markdown` | markitdown (pdf→md) → pandoc (md→txt) |
+### Platform
 
-Each pipeline step runs in a shared temp directory. Intermediate outputs are passed as input to the next step.
+Isolates OS-specific behavior: `detectPlatform()` (macos / windows / linux), `detectPackageManager()` (brew / winget / apt-get / manual), and `homeDirectory()` for config resolution.
 
-**Equivalent Command Generation**
+### Configuration
 
-The planner generates a human-readable CLI command (e.g. `morphase convert deck.pptx deck.pdf`) based on the route type:
-- Conversions → `morphase convert`
-- Media → `morphase media`
-- URL/YouTube fetches → `morphase fetch`
-- Extract to text/markdown/transcript → `morphase extract`
-- PDF operations → `morphase pdf <action>`
-- Image/video compression → `morphase image compress` / `morphase video compress`
-
-### Executor (`packages/engine/src/executor/executor.ts`)
-
-The executor runs the planned steps and validates results.
-
-**Execution flow:**
-
-1. If `dryRun`, log commands without executing
-2. For each step:
-   - Track temp directories
-   - Spawn process via `execa` with `reject: false`
-   - Capture stdout/stderr into job logs
-   - If `stdoutFile` is set, write stdout to file
-   - If exit code ≠ 0, create a `BACKEND_EXECUTION_FAILED` error
-   - Apply `outputMapping` (rename generated files to expected output paths)
-   - Collect `expectedOutputs` into the output set
-3. Validate that expected outputs actually exist on disk
-4. Clean up temp directories (unless `--debug` or `--keep-temp`)
-5. If outputs were expected but none validated, return `OUTPUT_NOT_PRODUCED`
-
-**Error Enrichment** (`enrichError`)
-
-The executor contains backend-specific error enrichment logic that detects common failure patterns in stderr and augments errors with `likelyCause` and `suggestedFixes`. Examples:
-- FFmpeg: "does not contain any stream" → audio stream missing
-- yt-dlp: "requested format not available" → format not supported
-- yt-dlp: "sign in" or "bot" → YouTube blocking the request
-- yt-dlp: ffmpeg errors → FFmpeg dependency missing
-- summarize: "node.*version" → Node 22+ required
-
-### Doctor (`packages/engine/src/doctor/doctor.ts`)
-
-Doctor inspects backend health by calling `detect()` and `verify()` on each plugin:
-
-For each backend, a `BackendDoctorReport` includes:
-- Installed status and detected version
-- Minimum version requirement
-- Verification result (issues + warnings)
-- Install and update hints for the current platform
-- Common problems list
-
-The CLI exposes this via `morphase doctor`, `morphase backend list`, `morphase backend verify <id>`, and `morphase backend install/update <id>`.
-
-### Job Manager (`packages/engine/src/jobs/job-manager.ts`)
-
-Every operation is tracked as a job with a UUID. Jobs are stored in an in-memory `Map<string, JobRecord>`.
-
-Job lifecycle: `queued` → `planned` → `running` → `success` | `failed` | `cancelled`
-
-The job manager provides:
-- `create()` — Initialize a job with UUID and timestamps
-- `get()` / `list()` — Retrieve jobs
-- `update()` — Apply partial patches
-- `setStatus()` — Transition job status
-- `appendLog()` — Add log entries
-- `complete()` — Finalize with a JobResult
-
-### Platform (`packages/engine/src/platform/platform.ts`)
-
-All OS-specific behavior is isolated here:
-
-- **`detectPlatform()`** — Maps `process.platform` to `"macos" | "windows" | "linux"`
-- **`detectPackageManager()`** — Detects available package manager: `brew` (macOS), `winget` (Windows), `apt-get`/`brew`/`manual` (Linux)
-- **`homeDirectory()`** — Returns `os.homedir()` for config file resolution
-
-### Configuration (`packages/engine/src/config/load-config.ts`)
-
-Config is loaded from `~/.morphase/config.json`, validated with Zod against `morphaseConfigSchema`:
+Loaded from `~/.morphase/config.json`, validated with Zod:
 
 ```ts
 {
-  offlineOnly: false,                    // Reject network-backed backends
-  preferredBackends: {},                 // Override route → plugin preferences
-  debug: false,                          // Enable debug logging
-  allowPackageManagerDelegation: false   // Allow running install commands
+  offlineOnly: false,                  // Reject network-backed backends
+  preferredBackends: {},               // Override route → plugin preferences
+  debug: false,                        // Enable debug logging
+  allowPackageManagerDelegation: false // Allow `backend install --run` to execute
 }
 ```
 
-If the file is missing, defaults are used. If the file is invalid, config loading fails closed with an error.
+If the file is missing, defaults are used. If it exists but is invalid, loading fails closed with an error.
 
-### Logger (`packages/engine/src/logging/logger.ts`)
-
-Structured log prefixes: `[planner]`, `[doctor]`, `[executor]`, `[plugin:<id>]`, `[debug]`. Debug messages are gated behind the `debug` config flag.
-
-### Errors (`packages/engine/src/errors/morphase-error.ts`)
-
-All engine errors are thrown as `MorphaseRuntimeError`, which wraps a structured `MorphaseError` with:
-- `code` — Machine-readable error code (e.g. `BACKEND_NOT_INSTALLED`, `UNSUPPORTED_ROUTE`)
-- `message` — Human-readable description
-- `likelyCause` — What probably went wrong
-- `suggestedFixes` — Actionable steps
-- `backendId` — Which backend is involved
-- `rawStdout` / `rawStderr` — Raw process output (for debug)
-
----
-
-## Plugin Architecture
-
-### Plugin Contract
+## Plugin model
 
 Every plugin implements the `MorphasePlugin` interface:
 
 ```ts
 interface MorphasePlugin {
-  id: string;                   // Unique identifier (e.g. "ffmpeg")
-  name: string;                 // Display name (e.g. "FFmpeg")
-  priority: number;             // Higher = preferred (default ordering)
-  minimumVersion?: string;      // Minimum supported version
-  optional?: boolean;           // Whether this plugin is optional
-  commonProblems?: string[];    // Known issues for doctor output
+  id: string;
+  name: string;
+  priority: number;
+  minimumVersion?: string;
+  optional?: boolean;
+  commonProblems?: string[];
 
   capabilities(): Capability[];
   detect(platform: Platform): Promise<DetectionResult>;
@@ -367,249 +234,173 @@ interface MorphasePlugin {
 }
 ```
 
-### Plugin SDK (`@morphase/plugin-sdk`)
+Plugins are stateless factories for execution plans. They do not perform conversions themselves.
 
-Provides three helpers to reduce boilerplate:
+For the full contract, SDK helpers, and a worked example, see [plugin-authoring.md](plugin-authoring.md).
 
-- **`definePlugin(plugin)`** — Identity function that ensures type correctness
-- **`detectFirstAvailableCommand(commands, versionArgs)`** — Tries multiple command names, returns the first one that responds
-- **`installHintByPlatform(platform, hints)`** — Selects the correct hint record for the current OS
+## Pipelines
 
-### Shared Plugin Helpers (`packages/plugins/src/helpers.ts`)
+When no single plugin can handle a route, Morphase can chain plugins via curated pipelines (`packages/engine/src/planner/pipelines.ts`). Each step runs in a shared temp directory; intermediate outputs feed the next step.
 
-Additional utilities used by most plugins:
+```mermaid
+graph LR
+    subgraph "markdown-to-pdf-via-docx"
+        A1[Markdown] -->|pandoc| A2[DOCX]
+        A2 -->|libreoffice| A3[PDF]
+    end
 
-- **`detectBinary(commands, versionArgs)`** — Wraps `detectFirstAvailableCommand` with semver parsing
-- **`packageHints(macos, windows, linux, notes)`** — Creates a per-platform install hint record
-- **`verifyBinary(commands, args)`** — Simple binary verification
-- **`libreOfficeConvert(input, output, format)`** — Builds a LibreOffice execution plan with output mapping
-- **`whisperGeneratedTranscript(input, output)`** — Builds a Whisper execution plan with output mapping
-- **`supportsImageMagickFormat(format)`** — Checks if ImageMagick supports a given format
+    subgraph "pdf-to-txt-via-markdown"
+        D1[PDF] -->|markitdown| D2[Markdown]
+        D2 -->|pandoc| D3[TXT]
+    end
+```
 
-### Plugin Registration
+Current pipelines:
 
-All 14 plugins are imported and registered in `packages/plugins/src/index.ts` as the `builtinPlugins` array. The engine receives these via `MorphaseEngine.create()`.
+| Pipeline ID                 | Steps                                               |
+| --------------------------- | --------------------------------------------------- |
+| `markdown-to-pdf-via-docx`  | pandoc (md→docx) → libreoffice (docx→pdf)           |
+| `html-to-pdf-via-docx`      | pandoc (html→docx) → libreoffice (docx→pdf)         |
+| `docx-to-markdown-via-pdf`  | libreoffice (docx→pdf) → markitdown (pdf→md)        |
+| `pdf-to-txt-via-markdown`   | markitdown (pdf→md) → pandoc (md→txt)               |
 
-### Builtin Plugin Matrix
+## Error handling, doctor, and platform support
 
-| Plugin | ID | Priority | Capabilities | External Tool |
-|--------|-----|----------|-------------|---------------|
-| Pandoc | `pandoc` | 95 | md→pdf, md→docx, md→txt, html→pdf, html→md, html→docx | `pandoc` |
-| LibreOffice | `libreoffice` | 100 | docx/pptx/xlsx/odt/ods/odp→pdf, pdf→docx | `soffice` |
-| FFmpeg | `ffmpeg` | 100 | mp4→mp3, mov→mp4, mkv→mp4, wav→mp3, mp3→wav, video compress | `ffmpeg` |
-| ImageMagick | `imagemagick` | 100 | jpg↔png, webp→png/jpg, heic→jpg/png | `magick`/`convert` |
-| qpdf | `qpdf` | 100 | pdf merge/split/optimize | `qpdf` |
-| Trafilatura | `trafilatura` | 90 | url→markdown, url→txt | `trafilatura` |
-| MarkItDown | `markitdown` | 80 | pdf/docx/pptx/xlsx/html→markdown | `markitdown` |
-| yt-dlp | `ytdlp` | 60 | youtube→mp4/mp3/transcript/subtitle, media-url→mp4/mp3/transcript | `yt-dlp` |
-| Whisper | `whisper` | 65 | mp3/wav/mp4/mov/mkv→transcript | `whisper` |
-| summarize | `summarize` | 70 | youtube-url→transcript, url→markdown | `summarize` |
-| jpegoptim | `jpegoptim` | 100 | jpg compress | `jpegoptim` |
-| optipng | `optipng` | 95 | png compress | `optipng` |
-| img2pdf | `img2pdf` | 100 | jpg→pdf, png→pdf (multi-image support) | `img2pdf` |
-| Poppler | `poppler` | 100 | pdf→png, pdf→jpg, pdf extract-images | `pdftocairo` / `pdfimages` |
+Morphase owns **diagnosis**, not repair. When something goes wrong, it tries to:
 
-### Route Preferences (`ROUTE_PREFERENCES`)
+1. **Say what failed** — a machine-readable error code and message.
+2. **Say why** — `likelyCause` explains the probable reason.
+3. **Say how to fix it** — `suggestedFixes` gives actionable steps.
+4. **Offer alternatives** — `fallbacks` lists other backends that could handle the route.
 
-Defined in `packages/shared/src/constants/routes.ts`, this map defines the preferred plugin ordering for each route key. The planner uses this as the default when no config override or `--backend` flag is provided.
+Error codes include: `INVALID_INPUT`, `OUTPUT_EXISTS`, `UNSUPPORTED_ROUTE`, `BACKEND_NOT_INSTALLED`, `BACKEND_EXECUTION_FAILED`, `OUTPUT_NOT_PRODUCED`, `NETWORK_REQUIRED`.
 
-### Execution Plan Structure
+All errors are thrown as `MorphaseRuntimeError`, wrapping a structured `MorphaseError` with `code`, `message`, `likelyCause`, `suggestedFixes`, `backendId`, and raw stdout/stderr for debugging.
 
-Plugins return an `ExecutionPlan` that describes exactly what to run:
+Official platform support is narrow:
+
+| OS              | Package manager |
+| --------------- | --------------- |
+| macOS           | Homebrew        |
+| Windows         | WinGet          |
+| Ubuntu / Debian | apt-get         |
+
+Other platforms may work but are best-effort. Install and update hints are only guaranteed for the three above.
+
+---
+
+## Deeper internals
+
+The sections below are useful if you're modifying the engine itself.
+
+### Domain model
+
+#### Resource kinds
+
+Morphase reasons about normalized resource kinds, not raw extensions. Defined as a const array in `@morphase/shared`:
+
+`markdown`, `html`, `docx`, `pptx`, `xlsx`, `odt`, `ods`, `odp`, `pdf`, `txt`, `jpg`, `png`, `webp`, `heic`, `mp3`, `wav`, `mp4`, `mov`, `mkv`, `url`, `youtube-url`, `media-url`, `subtitle`, `transcript`.
+
+`inferResourceKind` checks, in order: YouTube hostname, known media hosts (Instagram, TikTok, X, Reddit, …), any HTTP(S) URL, then file extension.
+
+#### Routes
+
+```ts
+type Route =
+  | { kind: "conversion"; from: ResourceKind; to: ResourceKind }
+  | { kind: "operation";  resource: ResourceKind; action: string };
+```
+
+Route keys: `"pptx->pdf"` for conversions, `"pdf:merge"` for operations.
+
+#### Core types
+
+| Type               | Purpose                                                                          |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `JobRequest`       | User-facing: input, from/to, operation, output, options, backend preference      |
+| `PlanRequest`      | Internal normalized request with resolved route, platform, `offlineOnly`         |
+| `ExecutionPlan`    | What to run: command, args, env, cwd, tempDirs, expectedOutputs, outputMapping   |
+| `PlannedExecution` | Full plan result: selected plugin, explanation, warnings, steps, fallbacks       |
+| `JobResult`        | Final result: jobId, status, outputPaths, logs, warnings, error                  |
+| `JobRecord`        | In-memory job state                                                              |
+| `MorphaseError`    | Structured error: code, message, likelyCause, suggestedFixes, rawStdout/Stderr   |
+
+### Execution plan structure
 
 ```ts
 {
-  command: string;              // Binary to execute
-  args: string[];               // Arguments (never shell-concatenated)
-  env?: Record<string, string>; // Additional environment variables
-  cwd?: string;                 // Working directory
-  tempDirs?: string[];          // Temp dirs to clean up after execution
-  expectedOutputs?: string[];   // Files that should exist after execution
-  outputMapping?: { source: string; target: string }[]; // Rename generated files
-  stdoutFile?: string;          // Write stdout to this file path
-  timeoutMs?: number;           // Process timeout
-  notes?: string[];             // Human-readable notes
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+  tempDirs?: string[];
+  expectedOutputs?: string[];
+  outputMapping?: { source: string; target: string }[];
+  stdoutFile?: string;
+  timeoutMs?: number;
+  notes?: string[];
 }
 ```
 
-The `outputMapping` field handles backends (like LibreOffice, yt-dlp) that generate output with their own naming conventions. The executor renames these files to match the user's expected output path.
+- `outputMapping` handles backends (LibreOffice, yt-dlp) that generate output with their own naming conventions — the executor renames those files to the expected path.
+- `stdoutFile` captures stdout to a file (used by trafilatura, summarize).
+- Commands and args are passed separately to `execa`; there is no shell concatenation.
 
----
+### Route preferences
 
-## Request Lifecycle
+Preferences come from three sources, highest priority first:
 
-This is the complete flow from user input to final result:
+1. The `--backend` CLI flag (explicit user choice).
+2. `preferredBackends` in `~/.morphase/config.json`.
+3. The built-in `ROUTE_PREFERENCES` map in `packages/shared/src/constants/routes.ts`.
 
-```
-User Input
-    │
-    v
-[CLI] builds JobRequest
-    │
-    v
-morphaseEngine.submit(request)
-    │
-    ├── normalizeRequest()
-    │     ├── Resolve input paths (relative → absolute)
-    │     ├── Infer resource kind from extension or URL
-    │     ├── Determine route (conversion or operation)
-    │     └── Derive output path if not specified
-    │
-    ├── JobManager.create() → job record (status: queued)
-    │
-    ├── toPlanRequest() → add platform + offlineOnly
-    │
-    ├── Planner.plan()
-    │     ├── Registry.findCandidates(route, platform)
-    │     │     └── Filter capabilities by route match + platform
-    │     │
-    │     ├── For each candidate:
-    │     │     ├── plugin.detect(platform) → DetectionResult
-    │     │     └── plugin.verify(platform) → VerificationResult
-    │     │
-    │     ├── Score and rank candidates
-    │     │
-    │     ├── For each installed candidate (rank order):
-    │     │     └── plugin.plan(request) → ExecutionPlan | null
-    │     │
-    │     └── Return PlannedExecution (or try curated pipelines)
-    │
-    ├── If installNeeded → throw BACKEND_NOT_INSTALLED
-    │
-    ├── JobManager.setStatus(running)
-    │
-    ├── Executor.run(jobId, plan, request)
-    │     ├── For each step:
-    │     │     ├── execa(command, args, { cwd, env })
-    │     │     ├── Capture stdout/stderr
-    │     │     ├── Write stdoutFile if specified
-    │     │     ├── Apply outputMapping (rename files)
-    │     │     └── Collect expectedOutputs
-    │     ├── Validate outputs exist on disk
-    │     ├── Clean up temp directories
-    │     └── Return JobResult
-    │
-    └── JobManager.complete(jobId, result)
-```
+### Builtin plugin matrix
 
----
+| Plugin       | ID            | Priority | External tool              |
+| ------------ | ------------- | -------- | -------------------------- |
+| Pandoc       | `pandoc`      | 95       | `pandoc`                   |
+| LibreOffice  | `libreoffice` | 100      | `soffice`                  |
+| FFmpeg       | `ffmpeg`      | 100      | `ffmpeg`                   |
+| ImageMagick  | `imagemagick` | 100      | `magick` / `convert`       |
+| qpdf         | `qpdf`        | 100      | `qpdf`                     |
+| Trafilatura  | `trafilatura` | 90       | `trafilatura`              |
+| MarkItDown   | `markitdown`  | 80       | `markitdown`               |
+| yt-dlp       | `ytdlp`       | 60       | `yt-dlp`                   |
+| Whisper      | `whisper`     | 65       | `whisper`                  |
+| summarize    | `summarize`   | 70       | `summarize`                |
+| jpegoptim    | `jpegoptim`   | 100      | `jpegoptim`                |
+| optipng      | `optipng`     | 95       | `optipng`                  |
+| img2pdf      | `img2pdf`     | 100      | `img2pdf`                  |
+| Poppler      | `poppler`     | 100      | `pdftocairo` / `pdfimages` |
 
-## CLI Architecture (`apps/cli`)
+For the full capability breakdown per route, see [route-matrix.md](route-matrix.md).
 
-The CLI is a **thin client** built with **Commander.js** and **prompts**.
+### Testing
 
-### Entry Point (`src/index.ts`)
+Tests live under `tests/` and use Vitest:
 
-On startup:
-1. Creates `morphaseEngine` instance
-2. If `process.argv.length <= 2` (no subcommand), launches the interactive wizard
-3. Otherwise, parses CLI arguments via Commander
+| Test file                         | What it covers                                                     |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `tests/planner.test.ts`           | Scoring, candidate selection, preferences, pipeline fallback       |
+| `tests/plugins.test.ts`           | Plugin metadata, capability declarations, detect/verify behavior   |
+| `tests/normalize-request.test.ts` | Path resolution and resource-kind inference                        |
+| `tests/youtube.test.ts`           | YouTube URL detection and routing                                  |
+| `tests/image-pdf.test.ts`         | Image ↔ PDF route handling                                         |
 
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `morphase` | Launch interactive wizard |
-| `morphase convert [args...]` | Convert file(s) (supports multi-image to PDF) |
-| `morphase extract <input> --to <format>` | Extract content |
-| `morphase fetch <url> --to <format>` | Fetch URL content |
-| `morphase media <input> --to <format>` | Convert audio/video |
-| `morphase image compress <input>` | Compress image |
-| `morphase video compress <input>` | Compress video |
-| `morphase pdf merge <inputs...> -o <out>` | Merge PDFs |
-| `morphase pdf split <input> --pages <range> -o <out>` | Split PDF |
-| `morphase pdf optimize <input> -o <out>` | Optimize PDF |
-| `morphase pdf extract-images <input> [-o <path>]` | Extract embedded images from PDF |
-| `morphase doctor` | Inspect all backends |
-| `morphase backend list` | List backend install status |
-| `morphase backend status` | Detailed backend status |
-| `morphase backend verify <id>` | Verify specific backend |
-| `morphase backend install <id> [--run]` | Show/run install command |
-| `morphase backend update <id> [--run]` | Show/run update command |
-| `morphase explain <input> --to <format>` | Show plan without running |
-
-### Common Options
-
-All conversion commands support: `--from`, `--backend`, `--offline`, `--debug`, `--dry-run`, `--force`.
-
-The `fetch` command also supports: `--format` (transcript format: text/markdown), `--quality` (best/high/medium/low).
-
-### Interactive Wizard (`src/wizard.ts`)
-
-When the user runs bare `morphase`, a guided flow walks through:
-1. **Category selection** — Documents, PDFs, Images, Audio & Video, Web & URLs
-2. **Route/operation selection** — Specific conversion or operation within category
-3. **Input collection** — File path or URL
-4. **Output path** — Pre-filled suggestion, user can override
-5. **Return request to CLI** — `runWizard()` returns a `JobRequest`
-6. **Plan preview** — The CLI asks the engine for a plan and can prompt to install missing backends
-7. **Confirmation** — "Run this now?"
-8. **Execution** — Runs the job and displays results
-
-The wizard supports "Back" navigation to return to the category picker.
-
-### Output Formatting (`src/format.ts`)
-
-Three formatters produce human-readable terminal output with ANSI colors:
-- `formatJobResult()` — Success: file name, size, path, backend used, warnings. Failure: error message, cause, suggested fixes.
-- `formatDoctorReport()` — Backend name, installed status, version, install hint, issues.
-- `formatCliError()` — Structured error display with cause and fix suggestions.
-
-## Testing Strategy
-
-Tests live in the root `tests/` directory and use **Vitest**.
-
-| Test file | What it tests |
-|-----------|---------------|
-| `tests/planner.test.ts` | Planner scoring, candidate selection, route preferences, pipeline fallback |
-| `tests/plugins.test.ts` | Plugin metadata, capability declarations, detect/verify behavior |
-| `tests/normalize-request.test.ts` | Request normalization, path resolution, resource kind inference |
-| `tests/youtube.test.ts` | YouTube URL detection and route handling |
-| `tests/image-pdf.test.ts` | Image-to-PDF and PDF-to-image route handling |
-
-### Build & Test Commands
+Dev commands:
 
 ```bash
-pnpm build           # Build all packages (tsup)
-pnpm typecheck       # TypeScript type checking across all packages
-pnpm test            # Run vitest
-pnpm test:watch      # Run vitest in watch mode
-pnpm dev             # Run CLI in dev mode (tsx)
+pnpm build       # Build all packages (tsup)
+pnpm typecheck   # TypeScript across all packages
+pnpm test        # Run vitest
+pnpm test:watch  # Vitest watch mode
+pnpm dev         # Run CLI via tsx
 ```
 
----
+### Security posture
 
-## Route Preference System
-
-Route preferences come from three sources (in priority order):
-
-1. **`--backend` CLI flag** — User explicitly selects a backend
-2. **Config `preferredBackends`** — User's `~/.morphase/config.json` overrides
-3. **`ROUTE_PREFERENCES` constant** — Built-in default ordering in `packages/shared/src/constants/routes.ts`
-
-This allows users to override defaults per route without modifying code.
-
----
-
-## Error Handling Philosophy
-
-morphase owns **diagnosis**, not repair. When something breaks:
-
-1. **Say what failed** — Clear error code and message
-2. **Say why** — `likelyCause` explains the probable reason
-3. **Tell how to fix it** — `suggestedFixes` provides actionable steps
-4. **Offer fallback** — `fallbacks` lists alternative backends
-
-Current error codes include: `INVALID_INPUT`, `OUTPUT_EXISTS`, `UNSUPPORTED_ROUTE`, `BACKEND_NOT_INSTALLED`, `BACKEND_EXECUTION_FAILED`, `OUTPUT_NOT_PRODUCED`, `NETWORK_REQUIRED`.
-
----
-
-## Security Posture
-
-- Local-first by default — no network requirement for core routes
-- No background server or daemon is required for normal CLI operation
-- No silent remote upload
-- Network-backed plugins (yt-dlp, trafilatura) are clearly disclosed
-- Plugins do not mutate system state without explicit user confirmation
-- `--debug` and `--keep-temp` are opt-in for troubleshooting
-- Commands and args are passed separately to `execa` — no shell injection
+- Local-first by default; no network requirement for core routes.
+- Network-backed plugins (yt-dlp, trafilatura, summarize) are clearly disclosed and easy to exclude with `--offline`.
+- Plugins do not mutate system state without explicit user confirmation (`backend install --run` is gated behind a config flag).
+- Commands and args are always passed as separate arrays to `execa` — no shell injection.
+- `--debug` and `--keep-temp` are opt-in for troubleshooting and never default on.

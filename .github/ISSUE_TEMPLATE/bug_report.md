@@ -4,7 +4,7 @@ about: Report a bug in Morphase
 labels: bug
 ---
 
-**Morphase version:** (run `morphase --version`)
+**Morphase version or commit SHA:**
 
 **OS and package manager:**
 

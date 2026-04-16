@@ -3,18 +3,31 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Local-first open-source conversion router — convert, download, and transform files on your machine",
+  "homepage": "https://github.com/joeljstephen/morphase#readme",
+  "bugs": {
+    "url": "https://github.com/joeljstephen/morphase/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joeljstephen/morphase.git",
+    "directory": "apps/cli"
+  },
   "bin": {
     "morphase": "dist/index.js"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=20"
+  },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "build": "tsup --config tsup.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "pnpm -C ../.. build && pnpm -C ../.. typecheck && pnpm -C ../.. test"
   },
   "keywords": [
     "convert",
@@ -28,15 +41,13 @@
     "local-first"
   ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/your-org/morphase.git"
-  },
   "dependencies": {
-    "@morphase/engine": "workspace:*",
-    "@morphase/shared": "workspace:*",
     "commander": "^14.0.1",
     "execa": "^9.6.0",
     "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@morphase/engine": "workspace:*",
+    "@morphase/shared": "workspace:*"
   }
 }

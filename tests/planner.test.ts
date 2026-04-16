@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
+import { describe, expect, it, vi } from "vitest";
 
 import { Planner } from "../packages/engine/src/planner/planner.js";
 import { PluginRegistry } from "../packages/engine/src/registry/plugin-registry.js";
@@ -150,6 +154,74 @@ describe("Planner", () => {
     const plan = await planner.plan(request);
     expect(plan.selectedPluginId).toBe("pipeline:pdf-to-txt-via-markdown");
     expect(plan.steps).toHaveLength(2);
+  });
+
+  it("cleans up pipeline temp roots when a pipeline backend is missing", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "morphase-pipeline-test-"));
+    const mkdtempSpy = vi.spyOn(fs, "mkdtemp").mockResolvedValue(tempRoot);
+    const rmSpy = vi.spyOn(fs, "rm");
+
+    try {
+      const registry = new PluginRegistry([
+        createPlugin({
+          id: "pandoc",
+          name: "Pandoc",
+          priority: 10,
+          capabilities: () => [
+            {
+              kind: "convert",
+              from: "markdown",
+              to: "txt",
+              quality: "high",
+              offline: true,
+              platforms: ["macos", "windows", "linux"]
+            }
+          ]
+        }),
+        createPlugin({
+          id: "markitdown",
+          name: "MarkItDown",
+          priority: 10,
+          capabilities: () => [
+            {
+              kind: "extract",
+              from: "pdf",
+              to: "markdown",
+              quality: "medium",
+              offline: true,
+              platforms: ["macos", "windows", "linux"]
+            }
+          ],
+          detect: async () => ({ installed: false, reason: "markitdown not found" })
+        })
+      ]);
+
+      const planner = new Planner(registry, baseConfig);
+      const request: PlanRequest = {
+        input: "demo.pdf",
+        from: "pdf",
+        to: "txt",
+        output: "demo.txt",
+        options: {},
+        platform: "macos",
+        offlineOnly: false,
+        route: {
+          kind: "conversion",
+          from: "pdf",
+          to: "txt"
+        }
+      };
+
+      const plan = await planner.plan(request);
+      expect(plan.installNeeded).toBe(true);
+      expect(plan.selectedPluginId).toBe("markitdown");
+      expect(rmSpy).toHaveBeenCalledWith(tempRoot, { recursive: true, force: true });
+      await expect(fs.access(tempRoot)).rejects.toThrow();
+    } finally {
+      mkdtempSpy.mockRestore();
+      rmSpy.mockRestore();
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it("prefers summarize over ytdlp for youtube-url->transcript", async () => {

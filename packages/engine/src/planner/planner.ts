@@ -169,6 +169,7 @@ export class Planner {
 
       const detection = await plugin.detect(request.platform);
       if (!detection.installed) {
+        await fs.rm(tempRoot, { recursive: true, force: true });
         return {
           selectedPluginId: plugin.id,
           explanation: `${pipeline.id} could not run because ${plugin.name} is not installed.`,
