@@ -22,13 +22,13 @@ Morphase itself stays small. The heavy lifting is done by external tools like FF
 
 ## Install
 
-Install from npm:
+Install from npm after the package is published:
 
 ```bash
 npm install -g morphase
 ```
 
-Or run Morphase from source:
+For now, run Morphase from source:
 
 ```bash
 git clone https://github.com/joeljstephen/morphase.git
