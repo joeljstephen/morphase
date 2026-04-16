@@ -194,10 +194,6 @@ export const ytdlpPlugin: MorphasePlugin = definePlugin({
     }
 
     if (to === "mp3") {
-      const ffmpegOk = await isFfmpegAvailable();
-      if (!ffmpegOk) {
-        return null;
-      }
       const qualityArgs = audioQualityArg(quality);
       return {
         command: "yt-dlp",
