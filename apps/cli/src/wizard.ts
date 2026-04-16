@@ -8,6 +8,32 @@ const BACK = "__back__" as const;
 
 type WizardStepResult = JobRequest | null | typeof BACK;
 
+function color(text: string, ansi: string): string {
+  return process.stdout.isTTY ? `\x1b[${ansi}m${text}\x1b[0m` : text;
+}
+
+function dim(text: string): string {
+  return color(text, "2");
+}
+
+function bold(text: string): string {
+  return color(text, "1");
+}
+
+function cyan(text: string): string {
+  return color(text, "36");
+}
+
+function printWizardIntro() {
+  const title = cyan(bold("morphase"));
+  const subtitle = `${dim("Convert, download, and transform")} ${color("files", "37")} ${dim("on your machine.")}`;
+
+  console.log("");
+  console.log(`  ${title}`);
+  console.log(`  ${subtitle}`);
+  console.log("");
+}
+
 const categories = [
   { title: "Documents", description: "Convert markdown, HTML, Word, slides, and spreadsheets", value: "documents" },
   { title: "PDFs", description: "Merge, split, optimize, and convert PDFs", value: "pdf" },
@@ -23,6 +49,7 @@ const documentRoutes = [
   { title: "HTML → Markdown", from: "html", to: "markdown" },
   { title: "DOCX → PDF", from: "docx", to: "pdf" },
   { title: "PDF → DOCX", from: "pdf", to: "docx" },
+  { title: "PDF → Markdown", from: "pdf", to: "markdown" },
   { title: "PPTX → PDF", from: "pptx", to: "pdf" },
   { title: "XLSX → PDF", from: "xlsx", to: "pdf" }
 ] as const;
@@ -513,14 +540,7 @@ async function handleRouteCategory(
 }
 
 export async function runWizard(): Promise<JobRequest | null> {
-  const dim = "\x1b[2m";
-  const bold = "\x1b[1m";
-  const reset = "\x1b[0m";
-
-  console.log("");
-  console.log(`  ${bold}morphase${reset}`);
-  console.log(`  ${dim}Convert, download, and transform files on your machine.${reset}`);
-  console.log("");
+  printWizardIntro();
 
   while (true) {
     const categoryAnswer = await prompts({

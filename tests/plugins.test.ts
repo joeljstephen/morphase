@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { libreOfficePlugin, pandocPlugin, trafilaturaPlugin, summarizePlugin, ytdlpPlugin } from "../packages/plugins/src/index.js";
+import { libreOfficePlugin, markitdownPlugin, pandocPlugin, trafilaturaPlugin, summarizePlugin, ytdlpPlugin } from "../packages/plugins/src/index.js";
 
 describe("builtin plugins", () => {
   it("builds a pandoc plan for markdown to docx", async () => {
@@ -61,6 +61,27 @@ describe("builtin plugins", () => {
     expect(plan?.command).toBe("soffice");
     expect(plan?.args).toContain("--infilter=writer_pdf_import");
     expect(plan?.args).toContain("docx:MS Word 2007 XML");
+  });
+
+  it("builds a MarkItDown plan for pdf to markdown", async () => {
+    const plan = await markitdownPlugin.plan({
+      input: "report.pdf",
+      from: "pdf",
+      to: "markdown",
+      output: "report.md",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "pdf",
+        to: "markdown"
+      }
+    });
+
+    expect(plan?.command).toBe("markitdown");
+    expect(plan?.args).toEqual(["report.pdf", "-o", "report.md"]);
+    expect(plan?.expectedOutputs).toContain("report.md");
   });
 });
 

@@ -28,6 +28,142 @@ function collectCommonOptions(command: Command): Command {
     .option("--force", "Overwrite an existing output path", false);
 }
 
+const COMMON_HELP_FLAGS = [
+  "--from <kind>     Explicitly set the input resource kind",
+  "--backend <name>  Prefer a specific backend",
+  "--offline         Require an offline-capable backend",
+  "--debug           Enable debug logging",
+  "--dry-run         Plan the job without executing it",
+  "--force           Overwrite an existing output path"
+];
+
+function styleHelpCommand(text: string): string {
+  return process.stdout.isTTY ? `\x1b[36m\x1b[1m${text}\x1b[22m\x1b[39m` : text;
+}
+
+function commandLine(command: string, remainder = ""): string {
+  return `${styleHelpCommand(command)}${remainder}`;
+}
+
+function formatHelpBlock(lines: string[]): string {
+  return lines.map((line) => `  ${line}`).join("\n");
+}
+
+function buildTopLevelHelp(): string {
+  return [
+    "",
+    "Overview",
+    formatHelpBlock([
+      "Morphase routes conversions across files, media, PDFs, and web content.",
+      `Run ${commandLine("morphase <command>", " --help")} for command-specific details and examples.`
+    ]),
+    "",
+    "General Syntax",
+    formatHelpBlock([
+      commandLine("morphase convert", " <input> <output> [common flags]"),
+      commandLine("morphase extract", " <input> --to <format> [options] [common flags]"),
+      commandLine("morphase fetch", " <url> --to <format> [options] [common flags]"),
+      commandLine("morphase media", " <input> --to <format> [options] [common flags]")
+    ]),
+    "",
+    "Core Conversion Commands",
+    formatHelpBlock([
+      commandLine("convert", " [args...]"),
+      "  General file-to-file conversion. Accepts positional input/output or `--inputs`.",
+      "  Flags: -o, --output <path>; --inputs <paths>",
+      "",
+      commandLine("extract", " <input>"),
+      "  Extracts a source into another representation such as text, markdown, JSON, or images.",
+      "  Flags: --to <format> (required); -o, --output <path>",
+      "",
+      commandLine("fetch", " <url>"),
+      "  Downloads or reads web content, then converts it to a target format.",
+      "  Flags: --to <format> (required); -o, --output <path>; --format <text|markdown>; --quality <best|high|medium|low>",
+      "",
+      commandLine("media", " <input>"),
+      "  Converts audio or video into another format.",
+      "  Flags: --to <format> (required); -o, --output <path>",
+      "",
+      commandLine("explain", " <input>"),
+      "  Shows how Morphase would route a request without executing it.",
+      "  Flags: --to <format> (required)"
+    ]),
+    "",
+    "Image And Video",
+    formatHelpBlock([
+      commandLine("image compress", " <input>"),
+      "  Compress an image file.",
+      "  Flags: -o, --output <path>",
+      "",
+      commandLine("video compress", " <input>"),
+      "  Compress a video file.",
+      "  Flags: -o, --output <path>"
+    ]),
+    "",
+    "PDF",
+    formatHelpBlock([
+      commandLine("pdf merge", " <inputs...>"),
+      "  Merge multiple PDFs into one file.",
+      "  Flags: -o, --output <path> (required)",
+      "",
+      commandLine("pdf split", " <input>"),
+      "  Extract specific page ranges into a new PDF.",
+      "  Flags: --pages <range> (required); -o, --output <path> (required)",
+      "",
+      commandLine("pdf optimize", " <input>"),
+      "  Optimize a PDF for size or structure.",
+      "  Flags: -o, --output <path> (required)",
+      "",
+      commandLine("pdf extract-images", " <input>"),
+      "  Extract embedded images from a PDF.",
+      "  Flags: -o, --output <path>"
+    ]),
+    "",
+    "Backend And Diagnostics",
+    formatHelpBlock([
+      commandLine("doctor"),
+      "  Inspect all backend health and installation state.",
+      "",
+      commandLine("backend list"),
+      "  Show installed and available backends at a glance.",
+      "",
+      commandLine("backend status"),
+      "  Show detailed health for every backend.",
+      "",
+      commandLine("backend verify", " <backendId>"),
+      "  Inspect one backend in detail.",
+      "",
+      commandLine("backend install", " <backendId>"),
+      "  Show install hints for a backend.",
+      "  Flags: --run",
+      "",
+      commandLine("backend update", " <backendId>"),
+      "  Show update hints for a backend.",
+      "  Flags: --run"
+    ]),
+    "",
+    "Common Flags",
+    formatHelpBlock(COMMON_HELP_FLAGS),
+    "",
+    "Examples",
+    formatHelpBlock([
+      styleHelpCommand("morphase convert ./notes.docx ./notes.pdf"),
+      styleHelpCommand("morphase extract ./paper.pdf --to markdown -o ./paper.md"),
+      styleHelpCommand("morphase fetch https://example.com/article --to markdown -o article.md"),
+      styleHelpCommand("morphase media ./podcast.mp3 --to text -o transcript.txt"),
+      styleHelpCommand("morphase pdf split ./report.pdf --pages 1-3,5 --output ./excerpt.pdf"),
+      styleHelpCommand("morphase backend verify ffmpeg")
+    ])
+  ].join("\n");
+}
+
+function configureHelpColors(command: Command): Command {
+  return command.configureHelp({
+    styleCommandText: styleHelpCommand,
+    styleSubcommandText: styleHelpCommand
+  });
+}
+
 function buildRequest(options: Record<string, unknown>, partial: JobRequest): JobRequest {
   return {
     ...partial,
@@ -242,7 +378,12 @@ async function printBackendHints(
 
 async function main() {
   const engine = await MorphaseEngine.create();
-  const program = new Command();
+  const program = configureHelpColors(new Command());
+
+  program.configureOutput({
+    getOutHasColors: () => Boolean(process.stdout.isTTY),
+    getErrHasColors: () => Boolean(process.stderr.isTTY)
+  });
 
   program.name("morphase").description("Local-first open-source conversion router for files, media, PDFs, and web content");
 
@@ -622,6 +763,16 @@ async function main() {
       printCliError(error, { setExitCode: true });
     }
 
+    return;
+  }
+
+  const topLevelArgs = process.argv.slice(2);
+  if (
+    topLevelArgs.length === 1 &&
+    (topLevelArgs[0] === "--help" || topLevelArgs[0] === "-h" || topLevelArgs[0] === "help")
+  ) {
+    program.outputHelp();
+    console.log(buildTopLevelHelp());
     return;
   }
 

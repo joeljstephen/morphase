@@ -104,14 +104,14 @@ morphase/
 @morphase/engine          (depends on @morphase/shared + @morphase/plugin-sdk + @morphase/plugins)
     ^
     |
-  +- morphase-cli         (depends on @morphase/engine + @morphase/shared)
+  +- morphase             (depends on @morphase/engine + @morphase/shared)
 ```
 
 Key external dependencies:
 - **zod** — config and job request validation (`@morphase/shared`)
-- **execa** — process spawning (`@morphase/engine`, `morphase-cli`)
-- **commander** — CLI argument parsing (`morphase-cli`)
-- **prompts** — interactive wizard (`morphase-cli`)
+- **execa** — process spawning (`@morphase/engine`, `morphase`)
+- **commander** — CLI argument parsing (`morphase`)
+- **prompts** — interactive wizard (`morphase`)
 
 ---
 
@@ -154,7 +154,7 @@ Routes are identified by a string key: `"pptx->pdf"` for conversions, `"pdf:merg
 | `ExecutionPlan` | What to run: command, args, env, cwd, tempDirs, expectedOutputs, outputMapping |
 | `PlannedExecution` | Full plan result: selected plugin, explanation, warnings, steps, fallbacks |
 | `JobResult` | Final result: jobId, status, outputPaths, logs, warnings, error, equivalentCommand |
-| `JobRecord` | Persistent job state: request, route, status, timestamps, logs, result |
+| `JobRecord` | In-memory job state: request, route, status, timestamps, logs, result |
 | `MorphaseError` | Structured error: code, message, likelyCause, suggestedFixes, rawStdout/Stderr |
 
 ---
@@ -245,7 +245,8 @@ The planner generates a human-readable CLI command (e.g. `morphase convert deck.
 - Media → `morphase media`
 - URL/YouTube fetches → `morphase fetch`
 - Extract to text/markdown/transcript → `morphase extract`
-- Operations → `morphase <resource> <action>`
+- PDF operations → `morphase pdf <action>`
+- Image/video compression → `morphase image compress` / `morphase video compress`
 
 ### Executor (`packages/engine/src/executor/executor.ts`)
 
@@ -331,7 +332,7 @@ Structured log prefixes: `[planner]`, `[doctor]`, `[executor]`, `[plugin:<id>]`,
 
 ### Errors (`packages/engine/src/errors/morphase-error.ts`)
 
-All engine errors are thrown as `morphaseRuntimeError`, which wraps a structured `morphaseError` with:
+All engine errors are thrown as `MorphaseRuntimeError`, which wraps a structured `MorphaseError` with:
 - `code` — Machine-readable error code (e.g. `BACKEND_NOT_INSTALLED`, `UNSUPPORTED_ROUTE`)
 - `message` — Human-readable description
 - `likelyCause` — What probably went wrong
@@ -345,10 +346,10 @@ All engine errors are thrown as `morphaseRuntimeError`, which wraps a structured
 
 ### Plugin Contract
 
-Every plugin implements the `morphasePlugin` interface:
+Every plugin implements the `MorphasePlugin` interface:
 
 ```ts
-interface morphasePlugin {
+interface MorphasePlugin {
   id: string;                   // Unique identifier (e.g. "ffmpeg")
   name: string;                 // Display name (e.g. "FFmpeg")
   priority: number;             // Higher = preferred (default ordering)
@@ -536,13 +537,14 @@ The `fetch` command also supports: `--format` (transcript format: text/markdown)
 ### Interactive Wizard (`src/wizard.ts`)
 
 When the user runs bare `morphase`, a guided flow walks through:
-1. **Category selection** — Documents, PDF, Images, Audio & Video, Download, Web pages
+1. **Category selection** — Documents, PDFs, Images, Audio & Video, Web & URLs
 2. **Route/operation selection** — Specific conversion or operation within category
 3. **Input collection** — File path or URL
 4. **Output path** — Pre-filled suggestion, user can override
-5. **Plan preview** — Shows which backend will be used
-6. **Confirmation** — "Run this now?"
-7. **Execution** — Runs the job and displays results
+5. **Return request to CLI** — `runWizard()` returns a `JobRequest`
+6. **Plan preview** — The CLI asks the engine for a plan and can prompt to install missing backends
+7. **Confirmation** — "Run this now?"
+8. **Execution** — Runs the job and displays results
 
 The wizard supports "Back" navigation to return to the category picker.
 
@@ -598,14 +600,14 @@ morphase owns **diagnosis**, not repair. When something breaks:
 3. **Tell how to fix it** — `suggestedFixes` provides actionable steps
 4. **Offer fallback** — `fallbacks` lists alternative backends
 
-Error codes include: `INPUT_NOT_FOUND`, `INVALID_INPUT`, `UNSUPPORTED_ROUTE`, `BACKEND_NOT_INSTALLED`, `BACKEND_VERSION_UNSUPPORTED`, `BACKEND_VERIFY_FAILED`, `BACKEND_EXECUTION_FAILED`, `OUTPUT_NOT_PRODUCED`, `NETWORK_REQUIRED`, `PERMISSION_DENIED`, `PIPELINE_STEP_FAILED`.
+Current error codes include: `INVALID_INPUT`, `OUTPUT_EXISTS`, `UNSUPPORTED_ROUTE`, `BACKEND_NOT_INSTALLED`, `BACKEND_EXECUTION_FAILED`, `OUTPUT_NOT_PRODUCED`, `NETWORK_REQUIRED`.
 
 ---
 
 ## Security Posture
 
 - Local-first by default — no network requirement for core routes
-- Server binds to localhost only by default
+- No background server or daemon is required for normal CLI operation
 - No silent remote upload
 - Network-backed plugins (yt-dlp, trafilatura) are clearly disclosed
 - Plugins do not mutate system state without explicit user confirmation

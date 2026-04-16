@@ -171,12 +171,13 @@ graph TD
     SDK["@morphase/plugin-sdk<br/>definePlugin, detect helpers"]
     Plugins["@morphase/plugins<br/>14 builtin backend plugins"]
     Engine["@morphase/engine<br/>Planner, executor, registry, doctor"]
-    CLI["morphase-cli<br/>Commander + prompts"]
+    CLI["morphase<br/>Commander + prompts"]
 
     SDK --> Shared
     Plugins --> Shared
     Plugins --> SDK
     Engine --> Shared
+    Engine --> SDK
     Engine --> Plugins
     CLI --> Engine
     CLI --> Shared
@@ -198,10 +199,13 @@ classDiagram
         +name: string
         +priority: number
         +minimumVersion?: string
+        +optional?: boolean
+        +commonProblems?: string[]
         +capabilities(): Capability[]
         +detect(platform): Promise~DetectionResult~
         +verify(platform): Promise~VerificationResult~
         +getInstallHints(platform): InstallHint[]
+        +getUpdateHints(platform): InstallHint[]
         +plan(request): Promise~ExecutionPlan | null~
         +explain(request): Promise~string~
     }
