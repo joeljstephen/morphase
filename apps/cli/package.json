@@ -27,7 +27,7 @@
     "build": "tsup --config tsup.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "tsx src/index.ts",
-    "prepublishOnly": "pnpm -C ../.. build && pnpm -C ../.. typecheck && pnpm -C ../.. test"
+    "prepublishOnly": "node -e \"const major = Number(process.versions.node.split('.')[0]); if (major < 20) { console.error(`morphase must be published from Node 20 or newer. Current runtime: ${process.version}. Run nvm use 24 (or another Node 20+ release) and retry npm publish.`); process.exit(1); }\" && pnpm -C ../.. build && pnpm -C ../.. typecheck && pnpm -C ../.. test"
   },
   "keywords": [
     "convert",
