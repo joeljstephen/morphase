@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
@@ -8,13 +9,19 @@ const cliEntry = path.join(repoRoot, "apps/cli/dist/index.js");
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 beforeAll(() => {
+  if (process.env.CI === "true" && existsSync(cliEntry)) {
+    return;
+  }
+
   const build = spawnSync(pnpmCommand, ["build"], {
     cwd: repoRoot,
-    encoding: "utf8"
+    encoding: "utf8",
+    shell: process.platform === "win32"
   });
 
   if (build.status !== 0) {
-    throw new Error(build.stderr || build.stdout || "Failed to build workspace before CLI tests.");
+    const details = build.error?.message ?? build.stderr ?? build.stdout;
+    throw new Error(details || "Failed to build workspace before CLI tests.");
   }
 }, 30000);
 
