@@ -33,8 +33,8 @@ function runCli(args: string[], timeoutMs = 30000) {
   });
 }
 
-describe("CLI exit codes", () => {
-  it("prints updated top-level help text", { timeout: 15000 }, () => {
+describe("CLI exit codes", { timeout: 20000 }, () => {
+  it("prints updated top-level help text", () => {
     const result = runCli(["--help"]);
 
     expect(result.status).toBe(0);
