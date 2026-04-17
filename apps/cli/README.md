@@ -6,14 +6,6 @@ It stays small and delegates the heavy lifting to tools already on your machine 
 
 ## Install
 
-From a release tarball or local package:
-
-```bash
-npm install -g /path/to/morphase-<version>.tgz
-```
-
-From the npm registry after public release:
-
 ```bash
 npm install -g morphase
 ```
