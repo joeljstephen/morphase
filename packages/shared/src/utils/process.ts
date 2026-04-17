@@ -20,7 +20,7 @@ export async function runCommandCapture(
     const timeout = setTimeout(() => {
       child.kill();
       resolve({ ok: false, stdout: "", stderr: "timed out", exitCode: null });
-    }, options.timeoutMs ?? 10000);
+    }, options.timeoutMs ?? 5000);
 
     let stdout = "";
     let stderr = "";
