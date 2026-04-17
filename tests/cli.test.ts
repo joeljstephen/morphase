@@ -15,7 +15,7 @@ beforeAll(() => {
   if (build.status !== 0) {
     throw new Error(build.stderr || build.stdout || "Failed to build workspace before CLI tests.");
   }
-});
+}, 30000);
 
 function runCli(args: string[]) {
   return spawnSync(process.execPath, [cliEntry, ...args], {
