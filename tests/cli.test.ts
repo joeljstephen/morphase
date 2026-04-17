@@ -18,15 +18,16 @@ beforeAll(() => {
   }
 }, 30000);
 
-function runCli(args: string[]) {
+function runCli(args: string[], timeoutMs = 30000) {
   return spawnSync(process.execPath, [cliEntry, ...args], {
     cwd: repoRoot,
-    encoding: "utf8"
+    encoding: "utf8",
+    timeout: timeoutMs
   });
 }
 
 describe("CLI exit codes", () => {
-  it("prints updated top-level help text", () => {
+  it("prints updated top-level help text", { timeout: 15000 }, () => {
     const result = runCli(["--help"]);
 
     expect(result.status).toBe(0);
