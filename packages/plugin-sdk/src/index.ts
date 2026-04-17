@@ -1,5 +1,5 @@
 import { runCommandCapture } from "@morphase/shared";
-import type { DetectionResult, InstallStrategy, ManualInstallStrategy, MorphasePlugin, PackageManager, PackageManagerInstallStrategy } from "@morphase/shared";
+import type { DetectionResult, InstallStrategy, ManualInstallStrategy, MorphasePlugin, PackageManager, PackageManagerInstallStrategy, StructuredCommand } from "@morphase/shared";
 
 export function definePlugin(plugin: MorphasePlugin): MorphasePlugin {
   return plugin;
@@ -28,7 +28,7 @@ export async function detectFirstAvailableCommand(
 
 export function packageManagerStrategy(
   manager: PackageManager,
-  command: string,
+  command: StructuredCommand,
   options: Omit<PackageManagerInstallStrategy, "kind" | "manager" | "command"> = {}
 ): InstallStrategy {
   return {

@@ -3,31 +3,17 @@ import path from "node:path";
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
-const installStrategies = [
-  strategyForManager("brew", "brew install jpegoptim"),
-  strategyForManager("apt", "sudo apt-get install jpegoptim"),
-  strategyForManager("dnf", "sudo dnf install jpegoptim"),
-  strategyForManager("yum", "sudo yum install jpegoptim"),
-  strategyForManager("pacman", "sudo pacman -S jpegoptim"),
-  strategyForManager("zypper", "sudo zypper install jpegoptim"),
-  manualStrategy("Install jpegoptim manually", {
-    notes: ["jpegoptim is not bundled with Morphase on Windows. Install it manually or use WSL."]
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { brew: "jpegoptim", apt: "jpegoptim", dnf: "jpegoptim", yum: "jpegoptim", pacman: "jpegoptim", zypper: "jpegoptim", nix: "jpegoptim" },
+  { label: "Install jpegoptim manually", notes: ["jpegoptim is not bundled with Morphase on Windows. Install it manually or use WSL."] }
+);
 
-const updateStrategies = [
-  strategyForManager("brew", "brew upgrade jpegoptim"),
-  strategyForManager("apt", "sudo apt-get install --only-upgrade jpegoptim"),
-  strategyForManager("dnf", "sudo dnf upgrade jpegoptim"),
-  strategyForManager("yum", "sudo yum update jpegoptim"),
-  strategyForManager("pacman", "sudo pacman -Syu jpegoptim"),
-  strategyForManager("zypper", "sudo zypper update jpegoptim"),
-  manualStrategy("Update jpegoptim manually", {
-    notes: ["On Windows, update the manual or WSL installation you use for jpegoptim."]
-  })
-];
+const updateStrategies = buildUpdateStrategies(
+  { brew: "jpegoptim", apt: "jpegoptim", dnf: "jpegoptim", yum: "jpegoptim", pacman: "jpegoptim", zypper: "jpegoptim" },
+  { label: "Update jpegoptim manually", notes: ["On Windows, update the manual or WSL installation you use for jpegoptim."] }
+);
 
 export const jpegoptimPlugin: MorphasePlugin = definePlugin({
   id: "jpegoptim",

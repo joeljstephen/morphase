@@ -1,7 +1,147 @@
 import path from "node:path";
 
 import { detectFirstAvailableCommand, manualInstallStrategy, packageManagerStrategy } from "@morphase/plugin-sdk";
-import { compareSemver, parseFirstSemver, runCommandCapture, type DetectionResult, type ExecutionPlan, type InstallStrategy, type PackageManager } from "@morphase/shared";
+import { compareSemver, parseFirstSemver, runCommandCapture, type DetectionResult, type ExecutionPlan, type InstallStrategy, type PackageManager, type StructuredCommand } from "@morphase/shared";
+
+export type PackageEntry = string | StructuredCommand;
+export type PackageNameMap = Partial<Record<PackageManager, PackageEntry>>;
+
+const installTemplates: Record<PackageManager, (pkg: string) => StructuredCommand> = {
+  brew: (pkg) => ({ file: "brew", args: ["install", pkg] }),
+  winget: (pkg) => ({ file: "winget", args: ["install", pkg] }),
+  choco: (pkg) => ({ file: "choco", args: ["install", pkg] }),
+  scoop: (pkg) => ({ file: "scoop", args: ["install", pkg] }),
+  apt: (pkg) => ({ file: "sudo", args: ["apt-get", "install", pkg] }),
+  dnf: (pkg) => ({ file: "sudo", args: ["dnf", "install", pkg] }),
+  yum: (pkg) => ({ file: "sudo", args: ["yum", "install", pkg] }),
+  pacman: (pkg) => ({ file: "sudo", args: ["pacman", "-S", pkg] }),
+  zypper: (pkg) => ({ file: "sudo", args: ["zypper", "install", pkg] }),
+  apk: (pkg) => ({ file: "sudo", args: ["apk", "add", pkg] }),
+  nix: (pkg) => ({ file: "nix", args: ["profile", "install", `nixpkgs#${pkg}`] }),
+  pip: (pkg) => ({ file: "pip", args: ["install", pkg] }),
+  pipx: (pkg) => ({ file: "pipx", args: ["install", pkg] }),
+  npm: (pkg) => ({ file: "npm", args: ["i", "-g", pkg] }),
+};
+
+const updateTemplates: Record<PackageManager, (pkg: string) => StructuredCommand> = {
+  brew: (pkg) => ({ file: "brew", args: ["upgrade", pkg] }),
+  winget: (pkg) => ({ file: "winget", args: ["upgrade", pkg] }),
+  choco: (pkg) => ({ file: "choco", args: ["upgrade", pkg] }),
+  scoop: (pkg) => ({ file: "scoop", args: ["update", pkg] }),
+  apt: (pkg) => ({ file: "sudo", args: ["apt-get", "install", "--only-upgrade", pkg] }),
+  dnf: (pkg) => ({ file: "sudo", args: ["dnf", "upgrade", pkg] }),
+  yum: (pkg) => ({ file: "sudo", args: ["yum", "update", pkg] }),
+  pacman: (pkg) => ({ file: "sudo", args: ["pacman", "-S", pkg] }),
+  zypper: (pkg) => ({ file: "sudo", args: ["zypper", "update", pkg] }),
+  apk: (pkg) => ({ file: "sudo", args: ["apk", "upgrade", pkg] }),
+  nix: (pkg) => ({ file: "nix", args: ["profile", "install", `nixpkgs#${pkg}`] }),
+  pip: (pkg) => ({ file: "pip", args: ["install", "--upgrade", pkg] }),
+  pipx: (pkg) => ({ file: "pipx", args: ["upgrade", pkg] }),
+  npm: (pkg) => ({ file: "npm", args: ["update", "-g", pkg] }),
+};
+
+function resolveCommand(
+  manager: PackageManager,
+  entry: PackageEntry,
+  templates: Record<PackageManager, (pkg: string) => StructuredCommand>
+): StructuredCommand {
+  if (typeof entry === "string") {
+    return templates[manager](entry);
+  }
+  return entry;
+}
+
+export function buildInstallStrategies(
+  packages: PackageNameMap,
+  manual: { label: string; url?: string; notes?: string[] },
+  sharedNotes?: string[]
+): InstallStrategy[] {
+  const strategies: InstallStrategy[] = [];
+
+  for (const manager of Object.keys(packages) as PackageManager[]) {
+    const entry = packages[manager];
+    if (entry == null) continue;
+
+    if (manager === "pip" && typeof entry === "string") {
+      strategies.push({
+        kind: "package-manager",
+        manager: "pip",
+        command: { file: "pip", args: ["install", entry] },
+        os: ["macos", "linux"],
+        notes: sharedNotes
+      });
+      strategies.push({
+        kind: "package-manager",
+        manager: "pip",
+        command: { file: "py", args: ["-m", "pip", "install", entry] },
+        os: ["windows"],
+        notes: sharedNotes
+      });
+      continue;
+    }
+
+    strategies.push({
+      kind: "package-manager",
+      manager,
+      command: resolveCommand(manager, entry, installTemplates),
+      notes: sharedNotes
+    });
+  }
+
+  strategies.push(manualInstallStrategy(manual.label, {
+    notes: manual.notes,
+    url: manual.url
+  }));
+
+  return strategies;
+}
+
+export function buildUpdateStrategies(
+  packages: PackageNameMap,
+  manual: { label: string; url?: string; notes?: string[] },
+  sharedNotes?: string[]
+): InstallStrategy[] {
+  const strategies: InstallStrategy[] = [];
+
+  for (const manager of Object.keys(packages) as PackageManager[]) {
+    const entry = packages[manager];
+    if (entry == null) continue;
+
+    if (manager === "nix") continue;
+
+    if (manager === "pip" && typeof entry === "string") {
+      strategies.push({
+        kind: "package-manager",
+        manager: "pip",
+        command: { file: "pip", args: ["install", "--upgrade", entry] },
+        os: ["macos", "linux"],
+        notes: sharedNotes
+      });
+      strategies.push({
+        kind: "package-manager",
+        manager: "pip",
+        command: { file: "py", args: ["-m", "pip", "install", "--upgrade", entry] },
+        os: ["windows"],
+        notes: sharedNotes
+      });
+      continue;
+    }
+
+    strategies.push({
+      kind: "package-manager",
+      manager,
+      command: resolveCommand(manager, entry, updateTemplates),
+      notes: sharedNotes
+    });
+  }
+
+  strategies.push(manualInstallStrategy(manual.label, {
+    notes: manual.notes,
+    url: manual.url
+  }));
+
+  return strategies;
+}
 
 export async function detectBinary(
   commands: string[],
@@ -16,7 +156,7 @@ export async function detectBinary(
 
 export function strategyForManager(
   manager: PackageManager,
-  command: string,
+  command: StructuredCommand,
   options: Omit<Extract<InstallStrategy, { kind: "package-manager" }>, "kind" | "manager" | "command"> = {}
 ): InstallStrategy {
   return packageManagerStrategy(manager, command, options);
@@ -72,7 +212,6 @@ export function libreOfficeConvert(inputPath: string, outputPath: string, format
   const generated = path.join(outputDir, sourceName);
   const args = ["--headless"];
 
-  // PDF import requires an explicit filter before LibreOffice can export to DOCX.
   if (path.extname(inputPath).toLowerCase() === ".pdf" && format === "docx") {
     args.push("--infilter=writer_pdf_import", "--convert-to", "docx:MS Word 2007 XML");
   } else {

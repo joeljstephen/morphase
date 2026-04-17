@@ -1,4 +1,4 @@
-import type { InstallHint, InstallStrategy, LinuxDistro, PackageManager, RuntimeEnvironment, SupportedOS } from "../types/index.js";
+import type { InstallHint, InstallStrategy, LinuxDistro, PackageManager, RuntimeEnvironment, StructuredCommand, SupportedOS } from "../types/index.js";
 
 const packageManagerLabels: Record<PackageManager, string> = {
   brew: "Homebrew",
@@ -11,10 +11,15 @@ const packageManagerLabels: Record<PackageManager, string> = {
   pacman: "pacman",
   zypper: "zypper",
   apk: "apk",
+  nix: "nix",
   pip: "pip",
   pipx: "pipx",
   npm: "npm"
 };
+
+export function renderCommand(cmd: StructuredCommand): string {
+  return [cmd.file, ...cmd.args].join(" ");
+}
 
 function matchesEnvironment(
   strategy: InstallStrategy,
@@ -73,7 +78,8 @@ function toHint(strategy: InstallStrategy, autoInstallable = false): InstallHint
       kind: "package-manager",
       label: `Install with ${packageManagerLabel(strategy.manager)}`,
       manager: strategy.manager,
-      command: strategy.command,
+      command: renderCommand(strategy.command),
+      structuredCommand: strategy.command,
       notes: strategy.notes,
       autoInstallable
     };
@@ -163,7 +169,7 @@ export function canAutoInstall(
   return Boolean(
     hint &&
       hint.kind === "package-manager" &&
-      hint.command &&
+      hint.structuredCommand &&
       hint.autoInstallable &&
       options.delegationEnabled &&
       options.interactive

@@ -3,27 +3,19 @@ import path from "node:path";
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
 const imageKinds: ResourceKind[] = ["jpg", "png"];
 
-const installStrategies = [
-  strategyForManager("pipx", "pipx install img2pdf"),
-  strategyForManager("pip", "pip install img2pdf", { os: ["macos", "linux"] }),
-  strategyForManager("pip", "py -m pip install img2pdf", { os: ["windows"] }),
-  manualStrategy("Install Python 3 and img2pdf manually", {
-    notes: ["img2pdf is a Python CLI tool. Ensure the img2pdf executable is on PATH after installation."]
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { pipx: "img2pdf", pip: "img2pdf" },
+  { label: "Install Python 3 and img2pdf manually", notes: ["img2pdf is a Python CLI tool. Ensure the img2pdf executable is on PATH after installation."] }
+);
 
-const updateStrategies = [
-  strategyForManager("pipx", "pipx upgrade img2pdf"),
-  strategyForManager("pip", "pip install --upgrade img2pdf", { os: ["macos", "linux"] }),
-  strategyForManager("pip", "py -m pip install --upgrade img2pdf", { os: ["windows"] }),
-  manualStrategy("Update img2pdf manually", {
-    notes: ["Use your Python package manager to update img2pdf and keep it on PATH."]
-  })
-];
+const updateStrategies = buildUpdateStrategies(
+  { pipx: "img2pdf", pip: "img2pdf" },
+  { label: "Update img2pdf manually", notes: ["Use your Python package manager to update img2pdf and keep it on PATH."] }
+);
 
 function isImageKind(kind: ResourceKind | undefined): boolean {
   return kind !== undefined && imageKinds.includes(kind);

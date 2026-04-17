@@ -176,19 +176,6 @@ function buildRequest(options: Record<string, unknown>, partial: JobRequest): Jo
   };
 }
 
-function tokenizeCommand(command: string): string[] {
-  const matches = command.match(/"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^\s]+/g) ?? [];
-  return matches.map((token) =>
-    token.startsWith("\"") || token.startsWith("'")
-      ? token.slice(1, -1)
-      : token
-  );
-}
-
-function containsShellOperators(command: string): boolean {
-  return /(^|[\s])(?:&&|\|\||\||;)(?=[\s]|$)/.test(command);
-}
-
 function packageManagerDelegationDisabledMessage(): string {
   return "Package-manager delegation is disabled. Set allowPackageManagerDelegation=true in ~/.morphase/config.json before using --run.";
 }
@@ -259,21 +246,14 @@ async function promptAndInstall(engine: MorphaseEngine, backendId: string): Prom
     return false;
   }
 
-  if (containsShellOperators(command)) {
-    console.log(`This install command contains shell operators and cannot be run automatically.`);
-    console.log(`Please run it manually: ${command}`);
+  const cmd = hint.structuredCommand;
+  if (!cmd) {
+    console.log(`No structured command available for automatic execution. Run manually: ${command}`);
     return false;
   }
 
-  const tokens = tokenizeCommand(command);
-  if (tokens.length === 0) {
-    console.log(`Could not parse install command: ${command}`);
-    return false;
-  }
-
-  const [file, ...args] = tokens;
   try {
-    await execa(file, args, { stdio: "inherit" });
+    await execa(cmd.file, cmd.args, { stdio: "inherit" });
     console.log("");
     return true;
   } catch (installError) {
@@ -389,12 +369,6 @@ async function printBackendHints(
     );
   }
 
-  if (containsShellOperators(command)) {
-    throw new Error(
-      "Morphase will not execute compound install commands automatically. Run the printed command manually."
-    );
-  }
-
   const confirmation = await prompts({
     type: "confirm",
     name: "ok",
@@ -406,13 +380,12 @@ async function printBackendHints(
     return;
   }
 
-  const tokens = tokenizeCommand(command);
-  if (tokens.length === 0) {
-    throw new Error(`Could not parse delegated ${mode} command: ${command}`);
+  const cmd = hint.structuredCommand;
+  if (!cmd) {
+    throw new Error(`No structured command available for delegated ${mode}. Run the printed command manually.`);
   }
 
-  const [file, ...args] = tokens;
-  await execa(file, args, { stdio: "inherit" });
+  await execa(cmd.file, cmd.args, { stdio: "inherit" });
 }
 
 async function main() {

@@ -1,27 +1,20 @@
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
-const installStrategies = [
-  strategyForManager("npm", "npm i -g @steipete/summarize", {
-    notes: ["Requires Node 22+."]
-  }),
-  strategyForManager("brew", "brew install summarize", {
-    notes: ["Requires Node 22+."]
-  }),
-  manualStrategy("Install Node.js 22+ and summarize manually", {
-    notes: ["Install Node.js with npm, then install summarize and ensure the global npm bin directory is on PATH."]
-  })
-];
+const sharedNotes = ["Requires Node 22+."];
 
-const updateStrategies = [
-  strategyForManager("npm", "npm update -g @steipete/summarize"),
-  strategyForManager("brew", "brew upgrade summarize"),
-  manualStrategy("Update summarize manually", {
-    notes: ["Use your npm or Homebrew installation path to update summarize."]
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { npm: "@steipete/summarize", brew: "summarize" },
+  { label: "Install Node.js 22+ and summarize manually", notes: ["Install Node.js with npm, then install summarize and ensure the global npm bin directory is on PATH."] },
+  sharedNotes
+);
+
+const updateStrategies = buildUpdateStrategies(
+  { npm: "@steipete/summarize", brew: "summarize" },
+  { label: "Update summarize manually", notes: ["Use your npm or Homebrew installation path to update summarize."] }
+);
 
 export const summarizePlugin: MorphasePlugin = definePlugin({
   id: "summarize",

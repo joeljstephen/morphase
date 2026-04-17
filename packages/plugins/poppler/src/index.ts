@@ -3,31 +3,17 @@ import path from "node:path";
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
-const installStrategies = [
-  strategyForManager("brew", "brew install poppler"),
-  strategyForManager("winget", "winget install poppler"),
-  strategyForManager("apt", "sudo apt-get install poppler-utils"),
-  strategyForManager("dnf", "sudo dnf install poppler-utils"),
-  strategyForManager("yum", "sudo yum install poppler-utils"),
-  strategyForManager("pacman", "sudo pacman -S poppler"),
-  manualStrategy("Install Poppler manually", {
-    notes: ["Install Poppler utilities and ensure pdftocairo and pdfimages are available on PATH."]
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { brew: "poppler", winget: "poppler", apt: "poppler-utils", dnf: "poppler-utils", yum: "poppler-utils", pacman: "poppler", nix: "poppler_utils" },
+  { label: "Install Poppler manually", notes: ["Install Poppler utilities and ensure pdftocairo and pdfimages are available on PATH."] }
+);
 
-const updateStrategies = [
-  strategyForManager("brew", "brew upgrade poppler"),
-  strategyForManager("winget", "winget upgrade poppler"),
-  strategyForManager("apt", "sudo apt-get install --only-upgrade poppler-utils"),
-  strategyForManager("dnf", "sudo dnf upgrade poppler-utils"),
-  strategyForManager("yum", "sudo yum update poppler-utils"),
-  strategyForManager("pacman", "sudo pacman -Syu poppler"),
-  manualStrategy("Update Poppler manually", {
-    notes: ["Use your installation method to update Poppler and keep pdftocairo/pdfimages on PATH."]
-  })
-];
+const updateStrategies = buildUpdateStrategies(
+  { brew: "poppler", winget: "poppler", apt: "poppler-utils", dnf: "poppler-utils", yum: "poppler-utils", pacman: "poppler" },
+  { label: "Update Poppler manually", notes: ["Use your installation method to update Poppler and keep pdftocairo/pdfimages on PATH."] }
+);
 
 function outputPrefixAndDir(outputPath: string): { prefix: string; dir: string } {
   const ext = path.extname(outputPath);

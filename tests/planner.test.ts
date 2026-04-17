@@ -414,7 +414,7 @@ describe("Planner", () => {
         ],
         detect: async () => ({ installed: false, reason: "summarize not found" }),
         verify: async () => ({ ok: false, issues: ["not installed"], warnings: [] }),
-        getInstallStrategies: () => [{ kind: "package-manager", manager: "npm", command: "npm i -g @steipete/summarize" }],
+        getInstallStrategies: () => [{ kind: "package-manager", manager: "npm", command: { file: "npm", args: ["i", "-g", "@steipete/summarize"] } }],
         plan: async () => null
       }),
       createPlugin({
@@ -433,7 +433,7 @@ describe("Planner", () => {
         ],
         detect: async () => ({ installed: false, reason: "yt-dlp not found" }),
         verify: async () => ({ ok: false, issues: ["not installed"], warnings: [] }),
-        getInstallStrategies: () => [{ kind: "package-manager", manager: "brew", command: "brew install yt-dlp" }],
+        getInstallStrategies: () => [{ kind: "package-manager", manager: "brew", command: { file: "brew", args: ["install", "yt-dlp"] } }],
         plan: async () => null
       })
     ]);

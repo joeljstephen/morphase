@@ -1,33 +1,20 @@
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
-const installStrategies = [
-  strategyForManager("pipx", "pipx install 'markitdown[all]'", {
-    notes: ["MarkItDown is a Python package and is commonly installed via pip or pipx."]
-  }),
-  strategyForManager("pip", "pip install 'markitdown[all]'", {
-    os: ["macos", "linux"],
-    notes: ["MarkItDown is a Python package and is commonly installed via pip or pipx."]
-  }),
-  strategyForManager("pip", "py -m pip install markitdown[all]", {
-    os: ["windows"],
-    notes: ["MarkItDown is a Python package and is commonly installed via pip or pipx."]
-  }),
-  manualStrategy("Install Python 3 and MarkItDown manually", {
-    notes: ["Ensure the markitdown executable is on PATH after installation."]
-  })
-];
+const sharedNotes = ["MarkItDown is a Python package and is commonly installed via pip or pipx."];
 
-const updateStrategies = [
-  strategyForManager("pipx", "pipx upgrade markitdown"),
-  strategyForManager("pip", "pip install --upgrade 'markitdown[all]'", { os: ["macos", "linux"] }),
-  strategyForManager("pip", "py -m pip install --upgrade markitdown[all]", { os: ["windows"] }),
-  manualStrategy("Update MarkItDown manually", {
-    notes: ["Use your Python package manager to update MarkItDown and keep it on PATH."]
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { pipx: "markitdown[all]", pip: "markitdown[all]" },
+  { label: "Install Python 3 and MarkItDown manually", notes: ["Ensure the markitdown executable is on PATH after installation."] },
+  sharedNotes
+);
+
+const updateStrategies = buildUpdateStrategies(
+  { pipx: "markitdown[all]", pip: "markitdown[all]" },
+  { label: "Update MarkItDown manually", notes: ["Use your Python package manager to update MarkItDown and keep it on PATH."] }
+);
 
 export const markitdownPlugin: MorphasePlugin = definePlugin({
   id: "markitdown",

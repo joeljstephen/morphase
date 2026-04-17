@@ -1,35 +1,20 @@
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
-const installStrategies = [
-  strategyForManager("pipx", "pipx install trafilatura", {
-    notes: ["Trafilatura is commonly installed via pip or pipx."]
-  }),
-  strategyForManager("pip", "pip install trafilatura", {
-    os: ["macos", "linux"],
-    notes: ["Trafilatura is commonly installed via pip or pipx."]
-  }),
-  strategyForManager("pip", "py -m pip install trafilatura", {
-    os: ["windows"],
-    notes: ["Trafilatura is commonly installed via pip or pipx."]
-  }),
-  strategyForManager("brew", "brew install trafilatura"),
-  manualStrategy("Install Python 3 and Trafilatura manually", {
-    notes: ["Ensure the trafilatura executable is on PATH after installation."]
-  })
-];
+const sharedNotes = ["Trafilatura is commonly installed via pip or pipx."];
 
-const updateStrategies = [
-  strategyForManager("pipx", "pipx upgrade trafilatura"),
-  strategyForManager("pip", "pip install --upgrade trafilatura", { os: ["macos", "linux"] }),
-  strategyForManager("pip", "py -m pip install --upgrade trafilatura", { os: ["windows"] }),
-  strategyForManager("brew", "brew upgrade trafilatura"),
-  manualStrategy("Update Trafilatura manually", {
-    notes: ["Use your Python package manager to update Trafilatura and keep it on PATH."]
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { pipx: "trafilatura", pip: "trafilatura", brew: "trafilatura" },
+  { label: "Install Python 3 and Trafilatura manually", notes: ["Ensure the trafilatura executable is on PATH after installation."] },
+  sharedNotes
+);
+
+const updateStrategies = buildUpdateStrategies(
+  { pipx: "trafilatura", pip: "trafilatura", brew: "trafilatura" },
+  { label: "Update Trafilatura manually", notes: ["Use your Python package manager to update Trafilatura and keep it on PATH."] }
+);
 
 export const trafilaturaPlugin: MorphasePlugin = definePlugin({
   id: "trafilatura",

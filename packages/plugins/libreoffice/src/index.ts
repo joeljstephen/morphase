@@ -1,33 +1,17 @@
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, libreOfficeConvert, libreOfficeGeneratedPdf, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, libreOfficeConvert, libreOfficeGeneratedPdf, verifyBinary } from "../../src/helpers.js";
 
-const installStrategies = [
-  strategyForManager("brew", "brew install --cask libreoffice"),
-  strategyForManager("winget", "winget install TheDocumentFoundation.LibreOffice"),
-  strategyForManager("apt", "sudo apt-get install libreoffice"),
-  strategyForManager("dnf", "sudo dnf install libreoffice"),
-  strategyForManager("yum", "sudo yum install libreoffice"),
-  strategyForManager("pacman", "sudo pacman -S libreoffice-fresh"),
-  strategyForManager("zypper", "sudo zypper install libreoffice"),
-  manualStrategy("Install LibreOffice manually", {
-    url: "https://www.libreoffice.org/download/download-libreoffice/"
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { brew: "libreoffice", winget: "TheDocumentFoundation.LibreOffice", apt: "libreoffice", dnf: "libreoffice", yum: "libreoffice", pacman: "libreoffice-fresh", zypper: "libreoffice", nix: "libreoffice" },
+  { label: "Install LibreOffice manually", url: "https://www.libreoffice.org/download/download-libreoffice/" }
+);
 
-const updateStrategies = [
-  strategyForManager("brew", "brew upgrade --cask libreoffice"),
-  strategyForManager("winget", "winget upgrade TheDocumentFoundation.LibreOffice"),
-  strategyForManager("apt", "sudo apt-get install --only-upgrade libreoffice"),
-  strategyForManager("dnf", "sudo dnf upgrade libreoffice"),
-  strategyForManager("yum", "sudo yum update libreoffice"),
-  strategyForManager("pacman", "sudo pacman -Syu libreoffice-fresh"),
-  strategyForManager("zypper", "sudo zypper update libreoffice"),
-  manualStrategy("Update LibreOffice manually", {
-    url: "https://www.libreoffice.org/download/download-libreoffice/"
-  })
-];
+const updateStrategies = buildUpdateStrategies(
+  { brew: "libreoffice", winget: "TheDocumentFoundation.LibreOffice", apt: "libreoffice", dnf: "libreoffice", yum: "libreoffice", pacman: "libreoffice-fresh", zypper: "libreoffice" },
+  { label: "Update LibreOffice manually", url: "https://www.libreoffice.org/download/download-libreoffice/" }
+);
 
 export const libreOfficePlugin: MorphasePlugin = definePlugin({
   id: "libreoffice",

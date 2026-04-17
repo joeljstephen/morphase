@@ -521,7 +521,7 @@ describe("planner selection for image/pdf routes", () => {
         ],
         detect: async () => ({ installed: false, reason: "pdftocairo not found" }),
         verify: async () => ({ ok: false, issues: ["not installed"], warnings: [] }),
-        getInstallStrategies: () => [{ kind: "package-manager", manager: "brew", command: "brew install poppler" }],
+        getInstallStrategies: () => [{ kind: "package-manager", manager: "brew", command: { file: "brew", args: ["install", "poppler"] } }],
         plan: async () => null
       })
     ]);

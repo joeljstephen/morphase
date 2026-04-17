@@ -1,33 +1,17 @@
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
-const installStrategies = [
-  strategyForManager("brew", "brew install qpdf"),
-  strategyForManager("winget", "winget install QPDF.QPDF"),
-  strategyForManager("apt", "sudo apt-get install qpdf"),
-  strategyForManager("dnf", "sudo dnf install qpdf"),
-  strategyForManager("yum", "sudo yum install qpdf"),
-  strategyForManager("pacman", "sudo pacman -S qpdf"),
-  strategyForManager("zypper", "sudo zypper install qpdf"),
-  manualStrategy("Install qpdf manually", {
-    url: "https://qpdf.readthedocs.io/en/stable/download.html"
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { brew: "qpdf", winget: "QPDF.QPDF", choco: "qpdf", scoop: "qpdf", apt: "qpdf", dnf: "qpdf", yum: "qpdf", pacman: "qpdf", zypper: "qpdf", nix: "qpdf" },
+  { label: "Install qpdf manually", url: "https://qpdf.readthedocs.io/en/stable/download.html" }
+);
 
-const updateStrategies = [
-  strategyForManager("brew", "brew upgrade qpdf"),
-  strategyForManager("winget", "winget upgrade QPDF.QPDF"),
-  strategyForManager("apt", "sudo apt-get install --only-upgrade qpdf"),
-  strategyForManager("dnf", "sudo dnf upgrade qpdf"),
-  strategyForManager("yum", "sudo yum update qpdf"),
-  strategyForManager("pacman", "sudo pacman -Syu qpdf"),
-  strategyForManager("zypper", "sudo zypper update qpdf"),
-  manualStrategy("Update qpdf manually", {
-    url: "https://qpdf.readthedocs.io/en/stable/download.html"
-  })
-];
+const updateStrategies = buildUpdateStrategies(
+  { brew: "qpdf", winget: "QPDF.QPDF", choco: "qpdf", scoop: "qpdf", apt: "qpdf", dnf: "qpdf", yum: "qpdf", pacman: "qpdf", zypper: "qpdf" },
+  { label: "Update qpdf manually", url: "https://qpdf.readthedocs.io/en/stable/download.html" }
+);
 
 export const qpdfPlugin: MorphasePlugin = definePlugin({
   id: "qpdf",

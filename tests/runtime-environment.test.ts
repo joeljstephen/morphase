@@ -102,6 +102,76 @@ describe("runtime environment detection", () => {
     expect(managers).toEqual(["zypper", "npm"]);
   });
 
+  it("detects NixOS from /etc/os-release", async () => {
+    const osReleasePath = await writeOsRelease("ID=nixos\nID_LIKE=\"\"\n");
+    await expect(detectLinuxDistro({ osReleasePath })).resolves.toBe("nixos");
+  });
+
+  it("detects NixOS via ID_LIKE fallback", async () => {
+    const osReleasePath = await writeOsRelease("ID=custom-nix\nID_LIKE=nixos\n");
+    await expect(detectLinuxDistro({ osReleasePath })).resolves.toBe("nixos");
+  });
+
+  it("prefers nix on NixOS", async () => {
+    const managers = await detectPackageManagers({
+      os: "linux",
+      distro: "nixos",
+      commandRunner: fakeRunner(["nix", "pip"])
+    });
+
+    expect(managers).toEqual(["nix", "pip"]);
+  });
+
+  it("detects nix package manager via nix command", async () => {
+    const managers = await detectPackageManagers({
+      os: "linux",
+      distro: "unknown",
+      commandRunner: fakeRunner(["nix", "pip"])
+    });
+
+    expect(managers).toContain("nix");
+  });
+
+  it("detects nix package manager via nix-env fallback", async () => {
+    const runner = async (command: string) => ({
+      ok: command === "nix-env",
+      stdout: command === "nix-env" ? "nix-env (Nix) 2.24" : "",
+      stderr: command !== "nix-env" ? "not found" : "",
+      exitCode: command === "nix-env" ? 0 : 1
+    });
+    const managers = await detectPackageManagers({
+      os: "linux",
+      distro: "unknown",
+      commandRunner: runner
+    });
+
+    expect(managers).toContain("nix");
+  });
+
+  it("builds a runtime environment with NixOS distro and nix manager", async () => {
+    const osReleasePath = await writeOsRelease("ID=nixos\n");
+    const environment = await detectRuntimeEnvironment({
+      os: "linux",
+      osReleasePath,
+      commandRunner: fakeRunner(["nix", "pipx"])
+    });
+
+    expect(environment).toEqual({
+      os: "linux",
+      distro: "nixos",
+      packageManagers: ["nix", "pipx"]
+    });
+  });
+
+  it("detects Windows package managers", async () => {
+    const managers = await detectPackageManagers({
+      os: "windows",
+      commandRunner: fakeRunner(["winget", "choco", "scoop"])
+    });
+
+    expect(managers).toEqual(["winget", "choco", "scoop"]);
+  });
+
   it("builds a runtime environment with distro and detected managers", async () => {
     const osReleasePath = await writeOsRelease("ID=fedora\nID_LIKE=\"fedora rhel\"\n");
     const environment = await detectRuntimeEnvironment({

@@ -36,6 +36,10 @@ const managerProbes: Record<PackageManager, CommandProbe[]> = {
     { command: "python", args: ["-m", "pipx", "--version"] },
     { command: "py", args: ["-m", "pipx", "--version"] }
   ],
+  nix: [
+    { command: "nix", args: ["--version"] },
+    { command: "nix-env", args: ["--version"] }
+  ],
   npm: [{ command: "npm", args: ["--version"] }]
 };
 
@@ -73,6 +77,7 @@ function normalizeLinuxDistro(id?: string, idLike?: string): LinuxDistro {
   if (direct === "debian") return "debian";
   if (direct === "fedora") return "fedora";
   if (direct === "alpine") return "alpine";
+  if (direct === "nixos") return "nixos";
 
   if (candidates.some((value) => value === "opensuse" || value === "suse" || value === "opensuse-tumbleweed" || value === "opensuse-leap")) {
     return "opensuse";
@@ -106,6 +111,10 @@ function normalizeLinuxDistro(id?: string, idLike?: string): LinuxDistro {
     return "alpine";
   }
 
+  if (candidates.some((value) => value === "nixos")) {
+    return "nixos";
+  }
+
   return "unknown";
 }
 
@@ -133,8 +142,10 @@ function packageManagerPriority(osName: SupportedOS, distro?: LinuxDistro): Pack
       return ["zypper", "brew", "pipx", "pip", "npm", "apt", "dnf", "yum", "pacman", "apk"];
     case "alpine":
       return ["apk", "brew", "pipx", "pip", "npm", "apt", "dnf", "yum", "pacman", "zypper"];
+    case "nixos":
+      return ["nix", "brew", "pipx", "pip", "npm", "apt", "dnf", "yum", "pacman", "zypper", "apk"];
     default:
-      return ["apt", "dnf", "yum", "pacman", "zypper", "apk", "brew", "pipx", "pip", "npm"];
+      return ["apt", "dnf", "yum", "pacman", "zypper", "apk", "nix", "brew", "pipx", "pip", "npm"];
   }
 }
 

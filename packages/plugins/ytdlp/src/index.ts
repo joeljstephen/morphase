@@ -4,46 +4,17 @@ import { definePlugin } from "@morphase/plugin-sdk";
 import { runCommandCapture } from "@morphase/shared";
 import type { MorphasePlugin, PlanRequest, Platform } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
-const installStrategies = [
-  strategyForManager("brew", "brew install yt-dlp"),
-  strategyForManager("winget", "winget install yt-dlp.yt-dlp"),
-  strategyForManager("choco", "choco install yt-dlp"),
-  strategyForManager("scoop", "scoop install yt-dlp"),
-  strategyForManager("apt", "sudo apt-get install yt-dlp"),
-  strategyForManager("dnf", "sudo dnf install yt-dlp"),
-  strategyForManager("yum", "sudo yum install yt-dlp"),
-  strategyForManager("pacman", "sudo pacman -Syu yt-dlp"),
-  strategyForManager("zypper", "sudo zypper install yt-dlp"),
-  strategyForManager("apk", "sudo apk add yt-dlp"),
-  strategyForManager("pipx", "pipx install 'yt-dlp[default]'"),
-  strategyForManager("pip", "pip install 'yt-dlp[default]'", { os: ["macos", "linux"] }),
-  strategyForManager("pip", "py -m pip install \"yt-dlp[default]\"", { os: ["windows"] }),
-  manualStrategy("Install yt-dlp manually", {
-    notes: ["The official installation guide also covers standalone binaries and Python-based installs."],
-    url: "https://github.com/yt-dlp/yt-dlp/wiki/Installation"
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { brew: "yt-dlp", winget: "yt-dlp.yt-dlp", choco: "yt-dlp", scoop: "yt-dlp", apt: "yt-dlp", dnf: "yt-dlp", yum: "yt-dlp", pacman: "yt-dlp", zypper: "yt-dlp", apk: "yt-dlp", pipx: "yt-dlp[default]", pip: "yt-dlp[default]", nix: "yt-dlp" },
+  { label: "Install yt-dlp manually", url: "https://github.com/yt-dlp/yt-dlp/wiki/Installation", notes: ["The official installation guide also covers standalone binaries and Python-based installs."] }
+);
 
-const updateStrategies = [
-  strategyForManager("brew", "brew upgrade yt-dlp"),
-  strategyForManager("winget", "winget upgrade yt-dlp.yt-dlp"),
-  strategyForManager("choco", "choco upgrade yt-dlp"),
-  strategyForManager("scoop", "scoop update yt-dlp"),
-  strategyForManager("apt", "sudo apt-get install --only-upgrade yt-dlp"),
-  strategyForManager("dnf", "sudo dnf upgrade yt-dlp"),
-  strategyForManager("yum", "sudo yum update yt-dlp"),
-  strategyForManager("pacman", "sudo pacman -Syu yt-dlp"),
-  strategyForManager("zypper", "sudo zypper update yt-dlp"),
-  strategyForManager("apk", "sudo apk upgrade yt-dlp"),
-  strategyForManager("pipx", "pipx upgrade yt-dlp"),
-  strategyForManager("pip", "pip install --upgrade 'yt-dlp[default]'", { os: ["macos", "linux"] }),
-  strategyForManager("pip", "py -m pip install --upgrade \"yt-dlp[default]\"", { os: ["windows"] }),
-  manualStrategy("Update yt-dlp manually", {
-    url: "https://github.com/yt-dlp/yt-dlp/wiki/Installation"
-  })
-];
+const updateStrategies = buildUpdateStrategies(
+  { brew: "yt-dlp", winget: "yt-dlp.yt-dlp", choco: "yt-dlp", scoop: "yt-dlp", apt: "yt-dlp", dnf: "yt-dlp", yum: "yt-dlp", pacman: "yt-dlp", zypper: "yt-dlp", apk: "yt-dlp", pipx: "yt-dlp[default]", pip: "yt-dlp[default]" },
+  { label: "Update yt-dlp manually", url: "https://github.com/yt-dlp/yt-dlp/wiki/Installation" }
+);
 
 async function isFfmpegAvailable(): Promise<boolean> {
   const result = await runCommandCapture("ffmpeg", ["-version"]);

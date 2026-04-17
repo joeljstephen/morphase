@@ -1,33 +1,20 @@
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary, whisperGeneratedTranscript } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary, whisperGeneratedTranscript } from "../../src/helpers.js";
 
-const installStrategies = [
-  strategyForManager("pipx", "pipx install openai-whisper", {
-    notes: ["Whisper CLI is a Python package and may need FFmpeg installed as well."]
-  }),
-  strategyForManager("pip", "pip install openai-whisper", {
-    os: ["macos", "linux"],
-    notes: ["Whisper CLI is a Python package and may need FFmpeg installed as well."]
-  }),
-  strategyForManager("pip", "py -m pip install openai-whisper", {
-    os: ["windows"],
-    notes: ["Whisper CLI is a Python package and may need FFmpeg installed as well."]
-  }),
-  manualStrategy("Install Python 3 and Whisper manually", {
-    notes: ["Install openai-whisper and ensure both whisper and ffmpeg are on PATH."]
-  })
-];
+const sharedNotes = ["Whisper CLI is a Python package and may need FFmpeg installed as well."];
 
-const updateStrategies = [
-  strategyForManager("pipx", "pipx upgrade openai-whisper"),
-  strategyForManager("pip", "pip install --upgrade openai-whisper", { os: ["macos", "linux"] }),
-  strategyForManager("pip", "py -m pip install --upgrade openai-whisper", { os: ["windows"] }),
-  manualStrategy("Update Whisper manually", {
-    notes: ["Use your Python package manager to update openai-whisper and keep ffmpeg installed."]
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { pipx: "openai-whisper", pip: "openai-whisper" },
+  { label: "Install Python 3 and Whisper manually", notes: ["Install openai-whisper and ensure both whisper and ffmpeg are on PATH."] },
+  sharedNotes
+);
+
+const updateStrategies = buildUpdateStrategies(
+  { pipx: "openai-whisper", pip: "openai-whisper" },
+  { label: "Update Whisper manually", notes: ["Use your Python package manager to update openai-whisper and keep ffmpeg installed."] }
+);
 
 export const whisperPlugin: MorphasePlugin = definePlugin({
   id: "whisper",

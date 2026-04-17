@@ -1,36 +1,19 @@
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
 const MINIMUM_VERSION = "6.0.0";
 
-const installStrategies = [
-  strategyForManager("brew", "brew install ffmpeg"),
-  strategyForManager("winget", "winget install Gyan.FFmpeg"),
-  strategyForManager("apt", "sudo apt-get install ffmpeg"),
-  strategyForManager("dnf", "sudo dnf install ffmpeg"),
-  strategyForManager("yum", "sudo yum install ffmpeg"),
-  strategyForManager("pacman", "sudo pacman -S ffmpeg"),
-  strategyForManager("zypper", "sudo zypper install ffmpeg"),
-  manualStrategy("Install FFmpeg manually", {
-    notes: ["Ensure the ffmpeg executable is available on PATH after installation."],
-    url: "https://www.ffmpeg.org/download.html"
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { brew: "ffmpeg", winget: "Gyan.FFmpeg", choco: "ffmpeg", scoop: "ffmpeg", apt: "ffmpeg", dnf: "ffmpeg", yum: "ffmpeg", pacman: "ffmpeg", zypper: "ffmpeg", nix: "ffmpeg" },
+  { label: "Install FFmpeg manually", url: "https://www.ffmpeg.org/download.html", notes: ["Ensure the ffmpeg executable is available on PATH after installation."] }
+);
 
-const updateStrategies = [
-  strategyForManager("brew", "brew upgrade ffmpeg"),
-  strategyForManager("winget", "winget upgrade --id Gyan.FFmpeg"),
-  strategyForManager("apt", "sudo apt-get install --only-upgrade ffmpeg"),
-  strategyForManager("dnf", "sudo dnf upgrade ffmpeg"),
-  strategyForManager("yum", "sudo yum update ffmpeg"),
-  strategyForManager("pacman", "sudo pacman -Syu ffmpeg"),
-  strategyForManager("zypper", "sudo zypper update ffmpeg"),
-  manualStrategy("Update FFmpeg manually", {
-    url: "https://www.ffmpeg.org/download.html"
-  })
-];
+const updateStrategies = buildUpdateStrategies(
+  { brew: "ffmpeg", winget: "Gyan.FFmpeg", choco: "ffmpeg", scoop: "ffmpeg", apt: "ffmpeg", dnf: "ffmpeg", yum: "ffmpeg", pacman: "ffmpeg", zypper: "ffmpeg" },
+  { label: "Update FFmpeg manually", url: "https://www.ffmpeg.org/download.html" }
+);
 
 const videoKinds: ResourceKind[] = ["mp4", "mov", "mkv"];
 

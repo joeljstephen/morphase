@@ -188,8 +188,8 @@ describe("Doctor backend reports", () => {
       verify: async () => installed
         ? { ok: true, issues: [], warnings: [] }
         : { ok: false, issues: ["not installed"], warnings: [] },
-      getInstallStrategies: () => [{ kind: "package-manager", manager: "brew", command: `brew install ${id}` }],
-      getUpdateStrategies: () => [{ kind: "package-manager", manager: "brew", command: `brew upgrade ${id}` }],
+      getInstallStrategies: () => [{ kind: "package-manager", manager: "brew", command: { file: "brew", args: ["install", id] } }],
+      getUpdateStrategies: () => [{ kind: "package-manager", manager: "brew", command: { file: "brew", args: ["upgrade", id] } }],
       plan: async () => null,
       explain: async () => id
     };

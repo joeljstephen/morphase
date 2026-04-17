@@ -1,31 +1,17 @@
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 
-import { detectBinary, manualStrategy, strategyForManager, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
-const installStrategies = [
-  strategyForManager("brew", "brew install optipng"),
-  strategyForManager("apt", "sudo apt-get install optipng"),
-  strategyForManager("dnf", "sudo dnf install optipng"),
-  strategyForManager("yum", "sudo yum install optipng"),
-  strategyForManager("pacman", "sudo pacman -S optipng"),
-  strategyForManager("zypper", "sudo zypper install optipng"),
-  manualStrategy("Install optipng manually", {
-    notes: ["optipng is not bundled with Morphase on Windows. Install it manually or use WSL."]
-  })
-];
+const installStrategies = buildInstallStrategies(
+  { brew: "optipng", apt: "optipng", dnf: "optipng", yum: "optipng", pacman: "optipng", zypper: "optipng", nix: "optipng" },
+  { label: "Install optipng manually", notes: ["optipng is not bundled with Morphase on Windows. Install it manually or use WSL."] }
+);
 
-const updateStrategies = [
-  strategyForManager("brew", "brew upgrade optipng"),
-  strategyForManager("apt", "sudo apt-get install --only-upgrade optipng"),
-  strategyForManager("dnf", "sudo dnf upgrade optipng"),
-  strategyForManager("yum", "sudo yum update optipng"),
-  strategyForManager("pacman", "sudo pacman -Syu optipng"),
-  strategyForManager("zypper", "sudo zypper update optipng"),
-  manualStrategy("Update optipng manually", {
-    notes: ["On Windows, update the manual or WSL installation you use for optipng."]
-  })
-];
+const updateStrategies = buildUpdateStrategies(
+  { brew: "optipng", apt: "optipng", dnf: "optipng", yum: "optipng", pacman: "optipng", zypper: "optipng" },
+  { label: "Update optipng manually", notes: ["On Windows, update the manual or WSL installation you use for optipng."] }
+);
 
 export const optipngPlugin: MorphasePlugin = definePlugin({
   id: "optipng",

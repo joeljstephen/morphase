@@ -39,6 +39,7 @@ export type LinuxDistro =
   | "manjaro"
   | "opensuse"
   | "alpine"
+  | "nixos"
   | "unknown";
 
 export type PackageManager =
@@ -52,6 +53,7 @@ export type PackageManager =
   | "pacman"
   | "zypper"
   | "apk"
+  | "nix"
   | "pip"
   | "pipx"
   | "npm";
@@ -110,10 +112,15 @@ export type VerificationResult = {
   warnings?: string[];
 };
 
+export type StructuredCommand = {
+  file: string;
+  args: string[];
+};
+
 export type PackageManagerInstallStrategy = {
   kind: "package-manager";
   manager: PackageManager;
-  command: string;
+  command: StructuredCommand;
   os?: SupportedOS[];
   distros?: LinuxDistro[];
   notes?: string[];
@@ -135,6 +142,7 @@ export type InstallHint = {
   label: string;
   manager?: PackageManager;
   command?: string;
+  structuredCommand?: StructuredCommand;
   notes?: string[];
   url?: string;
   autoInstallable: boolean;
