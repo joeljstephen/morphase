@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 
-import { runCommandCapture, type LinuxDistro, type PackageManager, type RuntimeEnvironment, type SupportedOS } from "@morphase/shared";
+import { runCommandCapture, type BsdFlavor, type LinuxDistro, type PackageManager, type RuntimeEnvironment, type SupportedOS } from "@morphase/shared";
 
 type CommandRunner = typeof runCommandCapture;
 
@@ -40,6 +40,7 @@ const managerProbes: Record<PackageManager, CommandProbe[]> = {
     { command: "nix", args: ["--version"] },
     { command: "nix-env", args: ["--version"] }
   ],
+  pkg: [{ command: "pkg", args: ["--version"] }],
   npm: [{ command: "npm", args: ["--version"] }]
 };
 
@@ -118,13 +119,17 @@ function normalizeLinuxDistro(id?: string, idLike?: string): LinuxDistro {
   return "unknown";
 }
 
-function packageManagerPriority(osName: SupportedOS, distro?: LinuxDistro): PackageManager[] {
+function packageManagerPriority(osName: SupportedOS, distro?: LinuxDistro, bsdFlavor?: BsdFlavor): PackageManager[] {
   if (osName === "macos") {
     return ["brew", "pipx", "pip", "npm"];
   }
 
   if (osName === "windows") {
     return ["winget", "choco", "scoop", "pipx", "pip", "npm"];
+  }
+
+  if (osName === "bsd") {
+    return ["pkg", "brew", "pipx", "pip", "npm"];
   }
 
   switch (distro) {
@@ -163,8 +168,25 @@ export function detectPlatform(): SupportedOS {
       return "macos";
     case "win32":
       return "windows";
+    case "freebsd":
+    case "openbsd":
+    case "netbsd":
+      return "bsd";
     default:
       return "linux";
+  }
+}
+
+export function detectBsdFlavor(): BsdFlavor {
+  switch (process.platform) {
+    case "freebsd":
+      return "freebsd";
+    case "openbsd":
+      return "openbsd";
+    case "netbsd":
+      return "netbsd";
+    default:
+      return "unknown";
   }
 }
 
@@ -183,12 +205,14 @@ export async function detectLinuxDistro(options: {
 export async function detectPackageManagers(options: {
   os?: SupportedOS;
   distro?: LinuxDistro;
+  bsdFlavor?: BsdFlavor;
   commandRunner?: CommandRunner;
 } = {}): Promise<PackageManager[]> {
   const osName = options.os ?? detectPlatform();
   const distro = osName === "linux" ? options.distro ?? await detectLinuxDistro() : undefined;
+  const bsdFlavor = osName === "bsd" ? options.bsdFlavor ?? detectBsdFlavor() : undefined;
   const commandRunner = options.commandRunner ?? runCommandCapture;
-  const managers = packageManagerPriority(osName, distro);
+  const managers = packageManagerPriority(osName, distro, bsdFlavor);
   const detected: PackageManager[] = [];
 
   for (const manager of managers) {
@@ -211,15 +235,18 @@ export async function detectRuntimeEnvironment(options: {
 } = {}): Promise<RuntimeEnvironment> {
   const osName = options.os ?? detectPlatform();
   const distro = osName === "linux" ? await detectLinuxDistro({ osReleasePath: options.osReleasePath }) : undefined;
+  const bsdFlavor = osName === "bsd" ? detectBsdFlavor() : undefined;
   const packageManagers = await detectPackageManagers({
     os: osName,
     distro,
+    bsdFlavor,
     commandRunner: options.commandRunner
   });
 
   return {
     os: osName,
     distro,
+    bsdFlavor,
     packageManagers
   };
 }

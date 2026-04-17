@@ -12,6 +12,7 @@ const packageManagerLabels: Record<PackageManager, string> = {
   zypper: "zypper",
   apk: "apk",
   nix: "nix",
+  pkg: "pkg",
   pip: "pip",
   pipx: "pipx",
   npm: "npm"
@@ -185,13 +186,19 @@ export function installHintSummary(hint: InstallHint): string {
 }
 
 export function runtimeEnvironmentLabel(environment: RuntimeEnvironment): string {
-  if (environment.os !== "linux") {
-    return environment.os;
+  if (environment.os === "linux") {
+    return environment.distro && environment.distro !== "unknown"
+      ? `linux (${environment.distro})`
+      : "linux";
   }
 
-  return environment.distro && environment.distro !== "unknown"
-    ? `linux (${environment.distro})`
-    : "linux";
+  if (environment.os === "bsd") {
+    return environment.bsdFlavor && environment.bsdFlavor !== "unknown"
+      ? `bsd (${environment.bsdFlavor})`
+      : "bsd";
+  }
+
+  return environment.os;
 }
 
 export function strategyAppliesToLinuxDistro(

@@ -320,6 +320,7 @@ describe("packageManagerLabel", () => {
     expect(packageManagerLabel("scoop")).toBe("Scoop");
     expect(packageManagerLabel("apt")).toBe("apt");
     expect(packageManagerLabel("nix")).toBe("nix");
+    expect(packageManagerLabel("pkg")).toBe("pkg");
     expect(packageManagerLabel("pip")).toBe("pip");
     expect(packageManagerLabel("npm")).toBe("npm");
   });
@@ -340,6 +341,15 @@ describe("runtimeEnvironmentLabel", () => {
   it("returns 'linux' for unknown distro", () => {
     expect(runtimeEnvironmentLabel({ os: "linux", distro: "unknown", packageManagers: [] })).toBe("linux");
     expect(runtimeEnvironmentLabel({ os: "linux", packageManagers: [] })).toBe("linux");
+  });
+
+  it("returns 'bsd (freebsd)' for FreeBSD", () => {
+    expect(runtimeEnvironmentLabel({ os: "bsd", bsdFlavor: "freebsd", packageManagers: [] })).toBe("bsd (freebsd)");
+  });
+
+  it("returns 'bsd' for unknown BSD flavor", () => {
+    expect(runtimeEnvironmentLabel({ os: "bsd", bsdFlavor: "unknown", packageManagers: [] })).toBe("bsd");
+    expect(runtimeEnvironmentLabel({ os: "bsd", packageManagers: [] })).toBe("bsd");
   });
 });
 

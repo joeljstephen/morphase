@@ -27,7 +27,7 @@ export const resourceKinds = [
 
 export type ResourceKind = (typeof resourceKinds)[number];
 
-export type SupportedOS = "macos" | "windows" | "linux";
+export type SupportedOS = "macos" | "windows" | "linux" | "bsd";
 export type Platform = SupportedOS;
 
 export type LinuxDistro =
@@ -42,6 +42,8 @@ export type LinuxDistro =
   | "nixos"
   | "unknown";
 
+export type BsdFlavor = "freebsd" | "openbsd" | "netbsd" | "unknown";
+
 export type PackageManager =
   | "brew"
   | "winget"
@@ -54,6 +56,7 @@ export type PackageManager =
   | "zypper"
   | "apk"
   | "nix"
+  | "pkg"
   | "pip"
   | "pipx"
   | "npm";
@@ -61,6 +64,7 @@ export type PackageManager =
 export type RuntimeEnvironment = {
   os: SupportedOS;
   distro?: LinuxDistro;
+  bsdFlavor?: BsdFlavor;
   packageManagers: PackageManager[];
 };
 

@@ -32,7 +32,7 @@ export function detectPlatform(): SupportedOS {
 }
 ```
 
-Three values: `"macos"`, `"windows"`, `"linux"`. All non-Darwin, non-Windows systems collapse to `"linux"`.
+Three values: `"macos"`, `"windows"`, `"linux"`, `"bsd"`. All non-Darwin, non-Windows, non-BSD systems (AIX, SunOS, etc.) collapse to `"linux"`. FreeBSD, OpenBSD, and NetBSD are detected as `"bsd"`.
 
 ### 1.2 Linux Distribution Detection
 
@@ -66,7 +66,7 @@ Morphase probes for available package managers by running `--version` commands.
 
 **Supported managers:**
 
-`brew`, `winget`, `choco`, `scoop`, `apt`, `dnf`, `yum`, `pacman`, `zypper`, `apk`, `nix`, `pip`, `pipx`, `npm`
+`brew`, `winget`, `choco`, `scoop`, `apt`, `dnf`, `yum`, `pacman`, `zypper`, `apk`, `nix`, `pkg`, `pip`, `pipx`, `npm`
 
 Some managers have multiple probes (e.g., `pip` tries `pip --version`, then `python3 -m pip --version`, then `python -m pip --version`, then `py -m pip --version`). `nix` tries `nix --version` then `nix-env --version`.
 
@@ -82,6 +82,7 @@ Some managers have multiple probes (e.g., `pip` tries `pip --version`, then `pyt
 | **openSUSE**    | `zypper`, `brew`, `pipx`, `pip`, `npm`, `apt`, `dnf`, `yum`, `pacman`, `apk` |
 | **Alpine**      | `apk`, `brew`, `pipx`, `pip`, `npm`, `apt`, `dnf`, `yum`, `pacman`, `zypper` |
 | **NixOS**       | `nix`, `brew`, `pipx`, `pip`, `npm`, `apt`, `dnf`, `yum`, `pacman`, `zypper`, `apk` |
+| **FreeBSD/OpenBSD/NetBSD** | `pkg`, `brew`, `pipx`, `pip`, `npm` |
 | **Unknown Linux** | `apt`, `dnf`, `yum`, `pacman`, `zypper`, `apk`, `nix`, `brew`, `pipx`, `pip`, `npm` |
 
 The native package manager for each distro is always first.
@@ -131,22 +132,22 @@ This generates a `PackageManagerInstallStrategy` for each key with the correct t
 
 ### 2.3 Plugin Strategy Coverage
 
-| Plugin | brew | winget | choco | scoop | apt | dnf | yum | pacman | zypper | apk | nix | pipx | pip | npm | manual |
-|--------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| pandoc | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | Y |
-| libreoffice | Y | Y | — | — | Y | Y | Y | Y | Y | — | Y | — | — | — | Y |
-| ffmpeg | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | Y |
-| imagemagick | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | Y |
-| qpdf | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | Y |
-| poppler | Y | Y | — | — | Y | Y | Y | Y | — | — | Y | — | — | — | Y |
-| yt-dlp | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y |
-| jpegoptim | Y | — | — | — | Y | Y | Y | Y | Y | — | Y | — | — | — | Y |
-| optipng | Y | — | — | — | Y | Y | Y | Y | Y | — | Y | — | — | — | Y |
-| trafilatura | Y | — | — | — | — | — | — | — | — | — | — | Y | Y | — | Y |
-| markitdown | — | — | — | — | — | — | — | — | — | — | — | Y | Y | — | Y |
-| whisper | — | — | — | — | — | — | — | — | — | — | — | Y | Y | — | Y |
-| img2pdf | — | — | — | — | — | — | — | — | — | — | — | Y | Y | — | Y |
-| summarize | Y | — | — | — | — | — | — | — | — | — | — | — | — | Y | Y |
+| Plugin | brew | winget | choco | scoop | apt | dnf | yum | pacman | zypper | apk | nix | pkg | pipx | pip | npm | manual |
+|--------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| pandoc | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | — | Y |
+| libreoffice | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | — | Y |
+| ffmpeg | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | — | Y |
+| imagemagick | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | — | Y |
+| qpdf | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | — | Y |
+| poppler | Y | Y | Y | Y | Y | Y | Y | Y | — | — | Y | — | — | — | — | Y |
+| yt-dlp | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | Y | — | Y |
+| jpegoptim | Y | — | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | — | Y |
+| optipng | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | Y | — | — | — | — | Y |
+| trafilatura | Y | — | — | — | — | — | — | — | — | — | — | — | Y | Y | — | Y |
+| markitdown | — | — | — | — | — | — | — | — | — | — | — | — | Y | Y | — | Y |
+| whisper | — | — | — | — | — | — | — | — | — | — | — | — | Y | Y | — | Y |
+| img2pdf | — | — | — | — | — | — | — | — | — | — | — | — | Y | Y | — | Y |
+| summarize | Y | — | — | — | — | — | — | — | — | — | — | — | — | — | Y | Y |
 
 Every plugin includes a manual fallback.
 
@@ -220,7 +221,7 @@ Morphase takes an honest approach to install guidance:
 - **No `/etc/os-release`**: Returns `"unknown"` distro; falls back to generic Linux priority order
 - **WSL**: Detected as Linux (not Windows); uses Linux commands
 - **No package managers**: Empty `packageManagers` array; always resolves to manual fallback
-- **Non-Linux UNIX** (FreeBSD, etc.): Detected as `"linux"` at the OS level; distro detection fails; manual fallback likely
+- **FreeBSD/OpenBSD/NetBSD**: Detected as `"bsd"` with `bsdFlavor` (e.g., `"freebsd"`). Primary package manager is `pkg`. Homebrew is probed as a fallback. Install strategies without `os` or `platforms` scoping still apply.
 - **Pip on Windows**: Uses `py -m pip install X` instead of `pip install X` (OS-scoped strategies)
 - **Nix update**: Excluded from update strategies; users fall back to manual
 

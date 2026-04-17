@@ -6,13 +6,13 @@ import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
 const installStrategies = buildInstallStrategies(
-  { brew: "jpegoptim", apt: "jpegoptim", dnf: "jpegoptim", yum: "jpegoptim", pacman: "jpegoptim", zypper: "jpegoptim", nix: "jpegoptim" },
-  { label: "Install jpegoptim manually", notes: ["jpegoptim is not bundled with Morphase on Windows. Install it manually or use WSL."] }
+  { brew: "jpegoptim", choco: "jpegoptim", scoop: "jpegoptim", apt: "jpegoptim", dnf: "jpegoptim", yum: "jpegoptim", pacman: "jpegoptim", zypper: "jpegoptim", nix: "jpegoptim" },
+  { label: "Install jpegoptim manually", notes: ["On Windows, jpegoptim is available via Chocolatey or Scoop. Alternatively use WSL."] }
 );
 
 const updateStrategies = buildUpdateStrategies(
-  { brew: "jpegoptim", apt: "jpegoptim", dnf: "jpegoptim", yum: "jpegoptim", pacman: "jpegoptim", zypper: "jpegoptim" },
-  { label: "Update jpegoptim manually", notes: ["On Windows, update the manual or WSL installation you use for jpegoptim."] }
+  { brew: "jpegoptim", choco: "jpegoptim", scoop: "jpegoptim", apt: "jpegoptim", dnf: "jpegoptim", yum: "jpegoptim", pacman: "jpegoptim", zypper: "jpegoptim" },
+  { label: "Update jpegoptim manually", notes: ["On Windows, update via Chocolatey or Scoop."] }
 );
 
 export const jpegoptimPlugin: MorphasePlugin = definePlugin({

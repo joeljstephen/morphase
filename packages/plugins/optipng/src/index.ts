@@ -4,13 +4,13 @@ import type { MorphasePlugin, PlanRequest } from "@morphase/shared";
 import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
 const installStrategies = buildInstallStrategies(
-  { brew: "optipng", apt: "optipng", dnf: "optipng", yum: "optipng", pacman: "optipng", zypper: "optipng", nix: "optipng" },
-  { label: "Install optipng manually", notes: ["optipng is not bundled with Morphase on Windows. Install it manually or use WSL."] }
+  { brew: "optipng", winget: "OptiPNG.OptiPNG", choco: "optipng", scoop: "optipng", apt: "optipng", dnf: "optipng", yum: "optipng", pacman: "optipng", zypper: "optipng", nix: "optipng" },
+  { label: "Install optipng manually" }
 );
 
 const updateStrategies = buildUpdateStrategies(
-  { brew: "optipng", apt: "optipng", dnf: "optipng", yum: "optipng", pacman: "optipng", zypper: "optipng" },
-  { label: "Update optipng manually", notes: ["On Windows, update the manual or WSL installation you use for optipng."] }
+  { brew: "optipng", winget: "OptiPNG.OptiPNG", choco: "optipng", scoop: "optipng", apt: "optipng", dnf: "optipng", yum: "optipng", pacman: "optipng", zypper: "optipng" },
+  { label: "Update optipng manually" }
 );
 
 export const optipngPlugin: MorphasePlugin = definePlugin({

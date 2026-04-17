@@ -6,12 +6,12 @@ import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morph
 import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
 const installStrategies = buildInstallStrategies(
-  { brew: "poppler", winget: "poppler", apt: "poppler-utils", dnf: "poppler-utils", yum: "poppler-utils", pacman: "poppler", nix: "poppler_utils" },
+  { brew: "poppler", winget: "oschwartz10612.Poppler", choco: "poppler", scoop: "poppler", apt: "poppler-utils", dnf: "poppler-utils", yum: "poppler-utils", pacman: "poppler", nix: "poppler_utils" },
   { label: "Install Poppler manually", notes: ["Install Poppler utilities and ensure pdftocairo and pdfimages are available on PATH."] }
 );
 
 const updateStrategies = buildUpdateStrategies(
-  { brew: "poppler", winget: "poppler", apt: "poppler-utils", dnf: "poppler-utils", yum: "poppler-utils", pacman: "poppler" },
+  { brew: "poppler", winget: "oschwartz10612.Poppler", choco: "poppler", scoop: "poppler", apt: "poppler-utils", dnf: "poppler-utils", yum: "poppler-utils", pacman: "poppler" },
   { label: "Update Poppler manually", notes: ["Use your installation method to update Poppler and keep pdftocairo/pdfimages on PATH."] }
 );
 

@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { detectLinuxDistro, detectPackageManagers, detectRuntimeEnvironment } from "../packages/engine/src/platform/platform.js";
+import { detectLinuxDistro, detectPackageManagers, detectRuntimeEnvironment, detectBsdFlavor, detectPlatform } from "../packages/engine/src/platform/platform.js";
 
 const tempPaths: string[] = [];
 
@@ -170,6 +170,56 @@ describe("runtime environment detection", () => {
     });
 
     expect(managers).toEqual(["winget", "choco", "scoop"]);
+  });
+
+  it("detects BSD as a distinct platform", () => {
+    const original = process.platform;
+    expect(["freebsd", "openbsd", "netbsd"].includes(original) ? "bsd" : original === "darwin" ? "macos" : original === "win32" ? "windows" : "linux").toBeDefined();
+  });
+
+  it("prefers pkg on FreeBSD", async () => {
+    const managers = await detectPackageManagers({
+      os: "bsd",
+      bsdFlavor: "freebsd",
+      commandRunner: fakeRunner(["pkg", "pip", "npm"])
+    });
+
+    expect(managers).toEqual(["pkg", "pip", "npm"]);
+  });
+
+  it("detects pkg via probe command", async () => {
+    const managers = await detectPackageManagers({
+      os: "bsd",
+      bsdFlavor: "freebsd",
+      commandRunner: fakeRunner(["pkg"])
+    });
+
+    expect(managers).toContain("pkg");
+  });
+
+  it("falls back to brew/pip on BSD without pkg", async () => {
+    const managers = await detectPackageManagers({
+      os: "bsd",
+      bsdFlavor: "freebsd",
+      commandRunner: fakeRunner(["brew", "pip"])
+    });
+
+    expect(managers).toEqual(["brew", "pip"]);
+    expect(managers).not.toContain("apt");
+    expect(managers).not.toContain("winget");
+  });
+
+  it("builds a runtime environment for FreeBSD", async () => {
+    const environment = await detectRuntimeEnvironment({
+      os: "bsd",
+      commandRunner: fakeRunner(["pkg", "pipx"])
+    });
+
+    expect(environment).toEqual({
+      os: "bsd",
+      bsdFlavor: expect.any(String),
+      packageManagers: ["pkg", "pipx"]
+    });
   });
 
   it("builds a runtime environment with distro and detected managers", async () => {

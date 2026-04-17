@@ -588,7 +588,9 @@ describe("normalize-request multi-image validation", () => {
     );
 
     expect(normalized.route.kind).toBe("conversion");
-    expect(normalized.route.to).toBe("pdf");
+    if (normalized.route.kind === "conversion") {
+      expect(normalized.route.to).toBe("pdf");
+    }
   });
 
   it("rejects non-image inputs when converting multiple files to pdf", () => {

@@ -5,7 +5,7 @@ import { builtinPlugins } from "../packages/plugins/src/index.js";
 
 const validManagers: PackageManager[] = [
   "brew", "winget", "choco", "scoop", "apt", "dnf", "yum",
-  "pacman", "zypper", "apk", "nix", "pip", "pipx", "npm"
+  "pacman", "zypper", "apk", "nix", "pkg", "pip", "pipx", "npm"
 ];
 
 const environments: Record<string, RuntimeEnvironment> = {
@@ -18,6 +18,7 @@ const environments: Record<string, RuntimeEnvironment> = {
   opensuse: { os: "linux", distro: "opensuse", packageManagers: ["zypper", "pipx", "pip", "npm"] },
   alpine: { os: "linux", distro: "alpine", packageManagers: ["apk", "pipx", "pip", "npm"] },
   nixos: { os: "linux", distro: "nixos", packageManagers: ["nix", "pipx", "pip", "npm"] },
+  freebsd: { os: "bsd", bsdFlavor: "freebsd", packageManagers: ["pkg", "pipx", "pip", "npm"] },
   unknownLinux: { os: "linux", distro: "unknown", packageManagers: ["pip", "npm"] },
   empty: { os: "linux", distro: "unknown", packageManagers: [] }
 };
@@ -90,6 +91,14 @@ describe("plugin strategy validation", () => {
         const strategy = selectInstallStrategy(strategies, environments.windows);
         if (strategy && strategy.kind === "package-manager") {
           expect(["brew", "apt", "dnf", "yum", "pacman", "zypper", "apk"]).not.toContain(strategy.manager);
+        }
+      });
+
+      it("never shows a wrong-OS command (BSD env does not get winget/choco/scoop/apt/dnf/pacman)", () => {
+        const strategies = plugin.getInstallStrategies();
+        const strategy = selectInstallStrategy(strategies, environments.freebsd);
+        if (strategy && strategy.kind === "package-manager") {
+          expect(["winget", "choco", "scoop", "apt", "dnf", "yum", "pacman", "zypper"]).not.toContain(strategy.manager);
         }
       });
 

@@ -28,8 +28,7 @@ npm install -g morphase
 
 You'll also need at least one backend installed on your system (FFmpeg, Pandoc, LibreOffice, etc.) depending on which routes you want. Run `morphase doctor` to see what's detected.
 
-<details>
-<summary>Running from source</summary>
+Running from source
 
 ```bash
 git clone https://github.com/joeljstephen/morphase.git
@@ -43,7 +42,7 @@ pnpm dev -- --help
 node apps/cli/dist/index.js --help
 ```
 
-</details>
+
 
 ## Quick start
 
@@ -108,15 +107,18 @@ See [docs/architecture.md](docs/architecture.md) for a deeper walkthrough.
 
 Morphase runs anywhere the required backend binaries are installed. Install guidance is environment-aware: it detects your OS, distro, and package managers, then shows the right command when it can — and honest manual instructions when it can't.
 
-| Environment             | Install hint example                            |
-| ----------------------- | ----------------------------------------------- |
-| macOS with Homebrew     | `brew install ffmpeg`                           |
-| Windows with WinGet     | `winget install Gyan.FFmpeg`                    |
-| Ubuntu / Debian         | `sudo apt-get install ffmpeg`                   |
-| Fedora / RHEL           | `sudo dnf install ffmpeg` or `sudo yum ...`     |
-| Arch / Manjaro          | `sudo pacman -S ffmpeg`                         |
-| openSUSE                | `sudo zypper install ffmpeg`                    |
-| NixOS                   | `nix profile install nixpkgs#ffmpeg`            |
+
+| Environment         | Install hint example                        |
+| ------------------- | ------------------------------------------- |
+| macOS with Homebrew | `brew install ffmpeg`                       |
+| Windows with WinGet | `winget install Gyan.FFmpeg`                |
+| Ubuntu / Debian     | `sudo apt-get install ffmpeg`               |
+| Fedora / RHEL       | `sudo dnf install ffmpeg` or `sudo yum ...` |
+| Arch / Manjaro      | `sudo pacman -S ffmpeg`                     |
+| openSUSE            | `sudo zypper install ffmpeg`                |
+| NixOS               | `nix profile install nixpkgs#ffmpeg`            |
+| FreeBSD / OpenBSD   | `sudo pkg install ffmpeg`                       |
+
 
 **Support tiers:**
 
@@ -143,7 +145,7 @@ Some plugins can download media from YouTube and other sites. Morphase does not 
 
 If Morphase saves you time, consider supporting development:
 
-<a href="https://buymeacoffee.com/joeljstephen" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 
 ## License
 

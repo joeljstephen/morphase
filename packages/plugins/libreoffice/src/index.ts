@@ -4,12 +4,12 @@ import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morph
 import { buildInstallStrategies, buildUpdateStrategies, detectBinary, libreOfficeConvert, libreOfficeGeneratedPdf, verifyBinary } from "../../src/helpers.js";
 
 const installStrategies = buildInstallStrategies(
-  { brew: "libreoffice", winget: "TheDocumentFoundation.LibreOffice", apt: "libreoffice", dnf: "libreoffice", yum: "libreoffice", pacman: "libreoffice-fresh", zypper: "libreoffice", nix: "libreoffice" },
+  { brew: "libreoffice", winget: "TheDocumentFoundation.LibreOffice", choco: "libreoffice-fresh", scoop: "libreoffice", apt: "libreoffice", dnf: "libreoffice", yum: "libreoffice", pacman: "libreoffice-fresh", zypper: "libreoffice", nix: "libreoffice" },
   { label: "Install LibreOffice manually", url: "https://www.libreoffice.org/download/download-libreoffice/" }
 );
 
 const updateStrategies = buildUpdateStrategies(
-  { brew: "libreoffice", winget: "TheDocumentFoundation.LibreOffice", apt: "libreoffice", dnf: "libreoffice", yum: "libreoffice", pacman: "libreoffice-fresh", zypper: "libreoffice" },
+  { brew: "libreoffice", winget: "TheDocumentFoundation.LibreOffice", choco: "libreoffice-fresh", scoop: "libreoffice", apt: "libreoffice", dnf: "libreoffice", yum: "libreoffice", pacman: "libreoffice-fresh", zypper: "libreoffice" },
   { label: "Update LibreOffice manually", url: "https://www.libreoffice.org/download/download-libreoffice/" }
 );
 
