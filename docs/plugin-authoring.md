@@ -72,7 +72,7 @@ Returns the set of routes this plugin can handle:
   operation?: string;          // for transform / extract operations
   quality: "high" | "medium" | "best_effort";
   offline: boolean;
-  platform?: Platform[];       // restrict to specific OSes
+  platforms: Platform[];
 }
 ```
 
@@ -80,11 +80,11 @@ The planner uses these to match a route to candidate plugins via `Registry.findC
 
 #### `detect(platform)`
 
-Checks whether the external tool is installed.
+Checks whether the external tool is installed:
 
 ```ts
-{ detected: true; version?: string; command: string }
-| { detected: false }
+{ installed: true; version?: string; command: string }
+| { installed: false; reason?: string }
 ```
 
 Use `detectBinary()` from `packages/plugins/src/helpers.ts`, or `detectFirstAvailableCommand()` from `@morphase/plugin-sdk`, to probe for binaries.
@@ -101,21 +101,52 @@ Good uses: checking delegate support (e.g. ImageMagick's HEIC/WebP delegates), d
 
 #### `getInstallStrategies()` / `getUpdateStrategies()`
 
-Return install strategies rather than one hardcoded command per OS. Morphase resolves these against the detected runtime environment and falls back to a manual strategy when no compatible package manager is available.
+Plugins declare install strategies rather than one hardcoded command per OS. Morphase resolves these against the detected runtime environment and falls back to manual guidance when no compatible package manager matches.
+
+**Use `buildInstallStrategies` and `buildUpdateStrategies`** from `packages/plugins/src/helpers.ts`. These take a package-name map and auto-generate `StructuredCommand` objects from templates:
 
 ```ts
-getInstallStrategies() {
-  return [
-    packageManagerStrategy("brew", "brew install ffmpeg"),
-    packageManagerStrategy("winget", "winget install Gyan.FFmpeg"),
-    packageManagerStrategy("apt", "sudo apt-get install ffmpeg"),
-    packageManagerStrategy("dnf", "sudo dnf install ffmpeg"),
-    manualInstallStrategy("Install FFmpeg manually", {
-      url: "https://www.ffmpeg.org/download.html",
-    }),
-  ];
-}
+import { buildInstallStrategies, buildUpdateStrategies } from "../../src/helpers.js";
+
+const installStrategies = buildInstallStrategies(
+  {
+    brew: "ffmpeg",
+    winget: "Gyan.FFmpeg",
+    choco: "ffmpeg",
+    scoop: "ffmpeg",
+    apt: "ffmpeg",
+    dnf: "ffmpeg",
+    yum: "ffmpeg",
+    pacman: "ffmpeg",
+    zypper: "ffmpeg",
+    nix: "ffmpeg"
+  },
+  {
+    label: "Install FFmpeg manually",
+    url: "https://www.ffmpeg.org/download.html"
+  }
+);
+
+const updateStrategies = buildUpdateStrategies(
+  {
+    brew: "ffmpeg",
+    apt: "ffmpeg",
+    /* ... same managers, nix is auto-excluded from updates */
+  },
+  { label: "Update FFmpeg manually" }
+);
 ```
+
+Key details:
+
+- Each key in the map is a `PackageManager` enum value. The value is the package name as a string.
+- Commands are generated as `StructuredCommand = { file: string; args: string[] }` — never as raw shell strings.
+- For `pip`, two OS-scoped strategies are auto-generated: `pip install X` for macOS/Linux and `py -m pip install X` for Windows.
+- `buildUpdateStrategies` automatically skips `nix` (since `nix profile upgrade` uses indices, not package names).
+- Every call appends a manual fallback strategy at the end.
+- If you need a custom `StructuredCommand` instead of a template, pass the object directly: `{ file: "custom", args: ["install", "x"] }`.
+
+**Important:** Every plugin must include at least one manual fallback. The centralized builders handle this automatically, but if you construct strategies manually, always include a `manualInstallStrategy(...)`.
 
 #### `plan(request)`
 
@@ -133,6 +164,7 @@ Builds an `ExecutionPlan` for the given request, or returns `null` if this plugi
   stdoutFile?: string;
   timeoutMs?: number;
   notes?: string[];
+  collectFromDir?: string;
 }
 ```
 
@@ -142,6 +174,7 @@ Key fields:
 - **`outputMapping`** — For tools that generate output under their own filenames (e.g. LibreOffice). The executor renames those files to the user's expected path.
 - **`stdoutFile`** — Write stdout to a file instead of discarding it (used by `trafilatura`, `summarize`).
 - **`tempDirs`** — Temp directories the executor will clean up after execution.
+- **`collectFromDir`** — Directory to scan for output files (used by `poppler` for multi-page rendering).
 
 #### `explain(request)`
 
@@ -153,17 +186,17 @@ Returns a human-readable explanation of why this plugin was chosen and what it w
 
 - **`definePlugin(plugin)`** — Identity function that enforces the `MorphasePlugin` type at compile time.
 - **`detectFirstAvailableCommand(commands, versionArgs)`** — Tries multiple command names and returns the first that responds.
-- **`packageManagerStrategy(manager, command, options?)`** — Creates a package-manager-backed install strategy.
+- **`packageManagerStrategy(manager, command, options?)`** — Creates a package-manager install strategy with a `StructuredCommand`.
 - **`manualInstallStrategy(label, options?)`** — Creates a manual install fallback strategy.
 
 ## Shared plugin helpers
 
 `packages/plugins/src/helpers.ts` adds conveniences used by most builtin plugins:
 
-- **`detectBinary(commands, versionArgs)`** — `detectFirstAvailableCommand` plus semver parsing.
-- **`strategyForManager(manager, command, options?)`** — Convenience wrapper for builtin package-manager strategies.
-- **`manualStrategy(label, options?)`** — Convenience wrapper for builtin manual strategies.
-- **`verifyBinary(commands, args)`** — Simple binary verification.
+- **`buildInstallStrategies(packages, manual, sharedNotes?)`** — Generate install strategies from a package-name map.
+- **`buildUpdateStrategies(packages, manual, sharedNotes?)`** — Generate update strategies from a package-name map.
+- **`detectBinary(commands, versionArgs?)`** — `detectFirstAvailableCommand` plus semver parsing.
+- **`verifyBinary(commands, args?, minimumVersion?)`** — Binary verification with optional version check.
 - **`libreOfficeConvert(input, output, format)`** — Builds a LibreOffice execution plan with output mapping.
 - **`whisperGeneratedTranscript(input, output)`** — Builds a Whisper execution plan with output mapping.
 
@@ -175,28 +208,29 @@ Returns a human-readable explanation of why this plugin was chosen and what it w
 - Keep backend-specific quirks, warnings, and install metadata inside the plugin.
 - Always pass commands and args as separate arrays — never shell-concatenate, to prevent injection.
 - Return `null` from `plan()` for requests this plugin can't handle; don't throw.
+- Always include a manual fallback in install strategies.
+- Use `buildInstallStrategies` / `buildUpdateStrategies` instead of manual strategy construction.
+- Prefer accurate partial coverage over guessed commands. If a tool isn't reliably available through a package manager, omit that manager rather than inventing a package name.
 
 ## Example skeleton
 
 ```ts
-import {
-  definePlugin,
-  detectFirstAvailableCommand,
-  manualInstallStrategy,
-  packageManagerStrategy,
-} from "@morphase/plugin-sdk";
-import type {
-  MorphasePlugin,
-  Capability,
-  PlanRequest,
-  ExecutionPlan,
-  Platform,
-  DetectionResult,
-  VerificationResult,
-  InstallStrategy,
-} from "@morphase/shared";
+import { definePlugin } from "@morphase/plugin-sdk";
+import type { MorphasePlugin, Capability, PlanRequest, ExecutionPlan, Platform, DetectionResult, VerificationResult } from "@morphase/shared";
 
-export const myPlugin = definePlugin({
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
+
+const installStrategies = buildInstallStrategies(
+  { brew: "mytool", apt: "mytool", dnf: "mytool" },
+  { label: "Install MyTool manually", url: "https://example.com/mytool" }
+);
+
+const updateStrategies = buildUpdateStrategies(
+  { brew: "mytool", apt: "mytool", dnf: "mytool" },
+  { label: "Update MyTool manually" }
+);
+
+export const myPlugin: MorphasePlugin = definePlugin({
   id: "mytool",
   name: "MyTool",
   priority: 80,
@@ -205,32 +239,31 @@ export const myPlugin = definePlugin({
 
   capabilities(): Capability[] {
     return [
-      { kind: "conversion", from: "csv", to: "json", quality: "high", offline: true },
+      { kind: "conversion", from: "csv", to: "json", quality: "high", offline: true, platforms: ["macos", "windows", "linux"] },
     ];
   },
 
   async detect(platform: Platform): Promise<DetectionResult> {
-    return detectFirstAvailableCommand(["mytool"], ["--version"]);
+    return detectBinary(["mytool"]);
   },
 
   async verify(platform: Platform): Promise<VerificationResult> {
-    return { ok: true };
+    return verifyBinary(["mytool"]);
   },
 
-  getInstallStrategies(): InstallStrategy[] {
-    return [
-      packageManagerStrategy("brew", "brew install mytool"),
-      packageManagerStrategy("winget", "winget install MyTool"),
-      packageManagerStrategy("apt", "sudo apt-get install mytool"),
-      manualInstallStrategy("Install MyTool manually"),
-    ];
+  getInstallStrategies() {
+    return installStrategies;
+  },
+
+  getUpdateStrategies() {
+    return updateStrategies;
   },
 
   async plan(request: PlanRequest): Promise<ExecutionPlan | null> {
     if (request.route.kind !== "conversion") return null;
     return {
       command: "mytool",
-      args: ["convert", request.input, "-o", request.output!],
+      args: ["convert", String(request.input), "-o", request.output!],
       expectedOutputs: [request.output!],
     };
   },
@@ -245,7 +278,8 @@ export const myPlugin = definePlugin({
 
 1. Create `packages/plugins/<id>/src/index.ts`.
 2. Implement the `MorphasePlugin` interface using `definePlugin()`.
-3. Export the plugin from `packages/plugins/src/index.ts` and add it to the `builtinPlugins` array.
-4. Add tests in `tests/plugins.test.ts` that verify metadata and capabilities.
-5. Run `pnpm build && pnpm typecheck && pnpm test`.
-6. Open a PR. Include a brief note on which route(s) it adds and why the plugin belongs in the main repo (see the [Official vs community](#official-vs-community-plugins) section above).
+3. Use `buildInstallStrategies` with accurate package names for supported managers and an honest manual fallback.
+4. Export the plugin from `packages/plugins/src/index.ts` and add it to the `builtinPlugins` array.
+5. Add tests in `tests/plugins.test.ts` that verify metadata and capabilities.
+6. Run `pnpm build && pnpm typecheck && pnpm test`.
+7. Open a PR. Include a brief note on which route(s) it adds and why the plugin belongs in the main repo (see the [Official vs community](#official-vs-community-plugins) section above).

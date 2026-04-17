@@ -106,18 +106,25 @@ See [docs/architecture.md](docs/architecture.md) for a deeper walkthrough.
 
 ## Supported platforms
 
-Morphase can run broadly anywhere the required backend binaries are installed. The install-guidance layer is environment-aware and prefers detected package managers when it can do so honestly:
+Morphase runs anywhere the required backend binaries are installed. Install guidance is environment-aware: it detects your OS, distro, and package managers, then shows the right command when it can — and honest manual instructions when it can't.
 
-| Environment             | Preferred hint examples                        |
-| ----------------------- | ---------------------------------------------- |
-| macOS with Homebrew     | `brew install ffmpeg`                          |
-| Windows with WinGet     | `winget install Gyan.FFmpeg`                   |
-| Ubuntu / Debian         | `sudo apt-get install ffmpeg`                  |
-| Fedora / RHEL           | `sudo dnf install ffmpeg` or `sudo yum ...`    |
-| Arch / Manjaro          | `sudo pacman -S ffmpeg`                        |
-| openSUSE                | `sudo zypper install ffmpeg`                   |
+| Environment             | Install hint example                            |
+| ----------------------- | ----------------------------------------------- |
+| macOS with Homebrew     | `brew install ffmpeg`                           |
+| Windows with WinGet     | `winget install Gyan.FFmpeg`                    |
+| Ubuntu / Debian         | `sudo apt-get install ffmpeg`                   |
+| Fedora / RHEL           | `sudo dnf install ffmpeg` or `sudo yum ...`     |
+| Arch / Manjaro          | `sudo pacman -S ffmpeg`                         |
+| openSUSE                | `sudo zypper install ffmpeg`                    |
+| NixOS                   | `nix profile install nixpkgs#ffmpeg`            |
 
-If Morphase does not detect a compatible package manager for a backend, it falls back to manual guidance instead of printing an obviously wrong command. Official support is still intentionally narrower than theoretical runtime support, so unsupported environments may still require manual dependency installation.
+**Support tiers:**
+
+- **Well-supported** — Morphase detects your package manager and the plugin has a strategy for it. You get the exact command.
+- **Best effort** — The plugin has strategies but not for your package manager. You get manual instructions instead of a wrong command.
+- **Manual only** — No compatible package manager detected. Clear manual guidance.
+
+Run `morphase doctor` to see what's detected and what's missing.
 
 ## Documentation
 

@@ -283,18 +283,17 @@ Error codes include: `INVALID_INPUT`, `OUTPUT_EXISTS`, `UNSUPPORTED_ROUTE`, `BAC
 
 All errors are thrown as `MorphaseRuntimeError`, wrapping a structured `MorphaseError` with `code`, `message`, `likelyCause`, `suggestedFixes`, `backendId`, and raw stdout/stderr for debugging.
 
-Official install guidance is narrow but the runtime is broader:
+Morphase provides environment-aware install guidance. When a backend is missing, the engine resolves install strategies against the detected runtime environment and shows the right command for the user's platform and package manager. If no matching strategy exists, it falls back to honest manual guidance instead of printing a wrong command.
 
-| Environment     | Best supported package managers |
-| --------------- | -------------------------------- |
-| macOS           | Homebrew                         |
-| Windows         | WinGet                           |
-| Ubuntu / Debian | apt                               |
-| Fedora / RHEL   | dnf / yum                        |
-| Arch / Manjaro  | pacman                           |
-| openSUSE        | zypper                           |
+See [platform-and-package-manager-handling.md](platform-and-package-manager-handling.md) for the full detection and resolution details.
 
-Other platforms may work but are best-effort. Morphase now avoids obviously wrong install commands by resolving plugin install strategies against the detected runtime environment and falling back to manual guidance when no compatible strategy matches.
+Support tiers for install guidance:
+
+| Tier | Description |
+|------|-------------|
+| **Well-supported** | Detected package manager has a strategy for the plugin. Morphase prints the exact command. |
+| **Best effort** | Plugin has strategies but not for the user's package manager. Falls back to manual guidance. |
+| **Manual only** | No package manager detected or no strategies match. Clear manual instructions. |
 
 ---
 
@@ -392,9 +391,15 @@ Tests live under `tests/` and use Vitest:
 | --------------------------------- | ------------------------------------------------------------------ |
 | `tests/planner.test.ts`           | Scoring, candidate selection, preferences, pipeline fallback       |
 | `tests/plugins.test.ts`           | Plugin metadata, capability declarations, detect/verify behavior   |
+| `tests/plugin-validation.test.ts` | Strategy validation, manual fallback coverage, OS scoping checks   |
+| `tests/install-guidance.test.ts`  | Strategy selection, CLI output, buildInstallStrategies, auto-install |
 | `tests/normalize-request.test.ts` | Path resolution and resource-kind inference                        |
+| `tests/runtime-environment.test.ts`| OS, distro, and package manager detection                         |
 | `tests/youtube.test.ts`           | YouTube URL detection and routing                                  |
 | `tests/image-pdf.test.ts`         | Image ↔ PDF route handling                                         |
+| `tests/cli.test.ts`               | CLI exit codes for error cases                                     |
+| `tests/config.test.ts`            | Configuration loading and validation                               |
+| `tests/executor.test.ts`          | Error enrichment patterns                                          |
 
 Dev commands:
 
