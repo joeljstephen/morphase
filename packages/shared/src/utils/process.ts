@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 export async function runCommandCapture(
   command: string,
   args: string[] = [],
-  options: { cwd?: string; env?: Record<string, string>; reject?: boolean } = {}
+  options: { cwd?: string; env?: Record<string, string>; reject?: boolean; timeoutMs?: number } = {}
 ): Promise<{
   ok: boolean;
   stdout: string;
@@ -17,6 +17,11 @@ export async function runCommandCapture(
       stdio: ["ignore", "pipe", "pipe"]
     });
 
+    const timeout = setTimeout(() => {
+      child.kill();
+      resolve({ ok: false, stdout: "", stderr: "timed out", exitCode: null });
+    }, options.timeoutMs ?? 10000);
+
     let stdout = "";
     let stderr = "";
 
@@ -29,6 +34,7 @@ export async function runCommandCapture(
     });
 
     child.on("error", (error) => {
+      clearTimeout(timeout);
       resolve({
         ok: false,
         stdout,
@@ -38,6 +44,7 @@ export async function runCommandCapture(
     });
 
     child.on("close", (exitCode) => {
+      clearTimeout(timeout);
       resolve({
         ok: exitCode === 0,
         stdout: stdout.trim(),
