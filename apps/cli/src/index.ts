@@ -410,7 +410,11 @@ async function printBackendHints(
 }
 
 async function main() {
-  const engine = await MorphaseEngine.create();
+  let enginePromise: Promise<MorphaseEngine> | undefined;
+  const getEngine = () => {
+    enginePromise ??= MorphaseEngine.create();
+    return enginePromise;
+  };
   const program = configureHelpColors(new Command());
 
   program.configureOutput({
@@ -447,7 +451,7 @@ async function main() {
       }
 
       await handleJob(
-        engine,
+        await getEngine(),
         buildRequest(options, {
           input,
           output,
@@ -468,7 +472,7 @@ async function main() {
     .action(async (input, options) => {
       try {
         await handleJob(
-          engine,
+          await getEngine(),
           buildRequest(options, {
             input,
             to: options.to as ResourceKind,
@@ -494,7 +498,7 @@ async function main() {
           ...(options.quality ? { quality: options.quality } : {})
         };
         await handleJob(
-          engine,
+          await getEngine(),
           buildRequest(options, {
             input: url,
             from,
@@ -515,7 +519,7 @@ async function main() {
     .action(async (input, options) => {
       try {
         await handleJob(
-          engine,
+          await getEngine(),
           buildRequest(options, {
             input,
             to: options.to as ResourceKind,
@@ -541,7 +545,7 @@ async function main() {
           throw new Error("Image compression expects an image input such as .jpg, .png, .webp, or .heic.");
         }
         await handleJob(
-          engine,
+          await getEngine(),
           buildRequest(options, {
             input,
             from,
@@ -568,7 +572,7 @@ async function main() {
           throw new Error("Video compression expects a video input such as .mp4, .mov, or .mkv.");
         }
         await handleJob(
-          engine,
+          await getEngine(),
           buildRequest(options, {
             input,
             from,
@@ -590,7 +594,7 @@ async function main() {
     .action(async (inputs, options) => {
       try {
         await handleJob(
-          engine,
+          await getEngine(),
           buildRequest(options, {
             input: inputs,
             from: "pdf",
@@ -613,7 +617,7 @@ async function main() {
     .action(async (input, options) => {
       try {
         await handleJob(
-          engine,
+          await getEngine(),
           buildRequest(options, {
             input,
             from: "pdf",
@@ -634,7 +638,7 @@ async function main() {
     .action(async (input, options) => {
       try {
         await handleJob(
-          engine,
+          await getEngine(),
           buildRequest(options, {
             input,
             from: "pdf",
@@ -654,7 +658,7 @@ async function main() {
     .action(async (input, options) => {
       try {
         await handleJob(
-          engine,
+          await getEngine(),
           buildRequest(options, {
             input,
             from: "pdf",
@@ -670,7 +674,7 @@ async function main() {
 
   program.command("doctor").description("Inspect backend health").action(async () => {
     try {
-      const reports = await engine.doctorAll();
+      const reports = await (await getEngine()).doctorAll();
       for (const report of reports) {
         console.log(formatDoctorReport(report));
         console.log("");
@@ -684,7 +688,7 @@ async function main() {
 
   backend.command("list").action(async () => {
     try {
-      const reports = await engine.doctorAll();
+      const reports = await (await getEngine()).doctorAll();
       const dim = "\x1b[2m";
       const yellow = "\x1b[33m";
       const green = "\x1b[32m";
@@ -713,7 +717,7 @@ async function main() {
 
   backend.command("status").action(async () => {
     try {
-      const reports = await engine.doctorAll();
+      const reports = await (await getEngine()).doctorAll();
       for (const report of reports) {
         console.log(formatDoctorReport(report));
         console.log("");
@@ -725,7 +729,7 @@ async function main() {
 
   backend.command("verify <backendId>").action(async (backendId) => {
     try {
-      const report = await engine.doctorBackend(backendId);
+      const report = await (await getEngine()).doctorBackend(backendId);
       console.log(formatDoctorReport(report));
     } catch (error) {
       printCliError(error, { setExitCode: true });
@@ -737,7 +741,7 @@ async function main() {
     .option("--run", "Run the suggested package-manager command after confirmation", false)
     .action(async (backendId, options) => {
       try {
-        await printBackendHints(engine, backendId, "install", options.run as boolean);
+        await printBackendHints(await getEngine(), backendId, "install", options.run as boolean);
       } catch (error) {
         printCliError(error, { setExitCode: true });
       }
@@ -748,7 +752,7 @@ async function main() {
     .option("--run", "Run the suggested package-manager command after confirmation", false)
     .action(async (backendId, options) => {
       try {
-        await printBackendHints(engine, backendId, "update", options.run as boolean);
+        await printBackendHints(await getEngine(), backendId, "update", options.run as boolean);
       } catch (error) {
         printCliError(error, { setExitCode: true });
       }
@@ -759,7 +763,7 @@ async function main() {
     .action(async (input, options) => {
       try {
         await printExplain(
-          engine,
+          await getEngine(),
           buildRequest(options, {
             input,
             to: options.to as ResourceKind
@@ -772,6 +776,7 @@ async function main() {
 
   if (process.argv.length <= 2) {
     try {
+      const engine = await getEngine();
       const request = await runWizard();
       if (!request) {
         return;

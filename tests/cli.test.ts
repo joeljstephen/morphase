@@ -5,12 +5,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
 const cliEntry = path.join(repoRoot, "apps/cli/dist/index.js");
+const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 beforeAll(() => {
-  const build = spawnSync("pnpm", ["build"], {
+  const build = spawnSync(pnpmCommand, ["build"], {
     cwd: repoRoot,
-    encoding: "utf8",
-    shell: true
+    encoding: "utf8"
   });
 
   if (build.status !== 0) {
