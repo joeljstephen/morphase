@@ -115,9 +115,6 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
       const { prefix, dir } = outputPrefixAndDir(request.output);
 
       if (to === "png") {
-        if (!(await detectBinary(["pdftocairo"], ["-v"])).installed) {
-          return null;
-        }
         return {
           command: "pdftocairo",
           args: ["-png", "-r", "150", "-singlefile", request.input, prefix],
@@ -127,9 +124,6 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
       }
 
       if (to === "jpg") {
-        if (!(await detectBinary(["pdftocairo"], ["-v"])).installed) {
-          return null;
-        }
         return {
           command: "pdftocairo",
           args: ["-jpeg", "-r", "150", "-singlefile", request.input, prefix],
@@ -142,9 +136,6 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
     }
 
     if (request.route.kind === "operation" && request.route.action === "extract-images") {
-      if (!(await detectBinary(["pdfimages"], ["-v"])).installed) {
-        return null;
-      }
       const { prefix, dir } = outputPrefixAndDir(request.output);
       return {
         command: "pdfimages",

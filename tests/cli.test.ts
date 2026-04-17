@@ -7,9 +7,10 @@ const repoRoot = process.cwd();
 const cliEntry = path.join(repoRoot, "apps/cli/dist/index.js");
 
 beforeAll(() => {
-  const build = spawnSync("corepack", ["pnpm", "build"], {
+  const build = spawnSync("pnpm", ["build"], {
     cwd: repoRoot,
-    encoding: "utf8"
+    encoding: "utf8",
+    shell: true
   });
 
   if (build.status !== 0) {
