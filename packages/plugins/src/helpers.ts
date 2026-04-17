@@ -8,7 +8,7 @@ export type PackageNameMap = Partial<Record<PackageManager, PackageEntry>>;
 
 const installTemplates: Record<PackageManager, (pkg: string) => StructuredCommand> = {
   brew: (pkg) => ({ file: "brew", args: ["install", pkg] }),
-  winget: (pkg) => ({ file: "winget", args: ["install", pkg] }),
+  winget: (pkg) => ({ file: "winget", args: ["install", "-e", "--id", pkg] }),
   choco: (pkg) => ({ file: "choco", args: ["install", pkg] }),
   scoop: (pkg) => ({ file: "scoop", args: ["install", pkg] }),
   apt: (pkg) => ({ file: "sudo", args: ["apt-get", "install", pkg] }),
@@ -26,7 +26,7 @@ const installTemplates: Record<PackageManager, (pkg: string) => StructuredComman
 
 const updateTemplates: Record<PackageManager, (pkg: string) => StructuredCommand> = {
   brew: (pkg) => ({ file: "brew", args: ["upgrade", pkg] }),
-  winget: (pkg) => ({ file: "winget", args: ["upgrade", pkg] }),
+  winget: (pkg) => ({ file: "winget", args: ["upgrade", "-e", "--id", pkg] }),
   choco: (pkg) => ({ file: "choco", args: ["upgrade", pkg] }),
   scoop: (pkg) => ({ file: "scoop", args: ["update", pkg] }),
   apt: (pkg) => ({ file: "sudo", args: ["apt-get", "install", "--only-upgrade", pkg] }),
@@ -51,6 +51,28 @@ function resolveCommand(
     return templates[manager](entry);
   }
   return entry;
+}
+
+function defaultOsForManager(manager: PackageManager): Extract<InstallStrategy, { kind: "package-manager" }>["os"] | undefined {
+  switch (manager) {
+    case "winget":
+    case "choco":
+    case "scoop":
+      return ["windows"];
+    case "apt":
+    case "dnf":
+    case "yum":
+    case "pacman":
+    case "zypper":
+    case "apk":
+      return ["linux"];
+    case "nix":
+      return ["macos", "linux"];
+    case "pkg":
+      return ["bsd"];
+    default:
+      return undefined;
+  }
 }
 
 export function buildInstallStrategies(
@@ -86,6 +108,7 @@ export function buildInstallStrategies(
       kind: "package-manager",
       manager,
       command: resolveCommand(manager, entry, installTemplates),
+      os: defaultOsForManager(manager),
       notes: sharedNotes
     });
   }
@@ -133,6 +156,7 @@ export function buildUpdateStrategies(
       kind: "package-manager",
       manager,
       command: resolveCommand(manager, entry, updateTemplates),
+      os: defaultOsForManager(manager),
       notes: sharedNotes
     });
   }

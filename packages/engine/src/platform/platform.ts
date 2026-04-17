@@ -121,7 +121,7 @@ function normalizeLinuxDistro(id?: string, idLike?: string): LinuxDistro {
 
 function packageManagerPriority(osName: SupportedOS, distro?: LinuxDistro, bsdFlavor?: BsdFlavor): PackageManager[] {
   if (osName === "macos") {
-    return ["brew", "pipx", "pip", "npm"];
+    return ["brew", "nix", "pipx", "pip", "npm"];
   }
 
   if (osName === "windows") {

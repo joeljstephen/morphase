@@ -12,6 +12,6 @@ Brief description of the change and why it's needed.
 
 ## Checklist
 
-- [ ] `pnpm build` passes
-- [ ] `pnpm typecheck` passes
-- [ ] `pnpm test` passes
+- [ ] `corepack pnpm build` passes
+- [ ] `corepack pnpm typecheck` passes
+- [ ] `corepack pnpm test` passes

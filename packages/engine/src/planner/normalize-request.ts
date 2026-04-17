@@ -107,8 +107,10 @@ function ensureLocalInputsExist(input: string | string[]): void {
   });
 }
 
-const imageResourceKinds: import("@morphase/shared").ResourceKind[] = ["jpg", "png", "webp"];
+const pdfCombinableImageKinds: import("@morphase/shared").ResourceKind[] = ["jpg", "png"];
 const pageRangePattern = /^\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*$/;
+const validFetchQualities = new Set(["best", "high", "medium", "low"]);
+const validTranscriptFormats = new Set(["text", "markdown"]);
 
 function validateMultiImageInput(input: string | string[], to: import("@morphase/shared").ResourceKind | undefined): void {
   if (to !== "pdf" || !Array.isArray(input) || input.length <= 1) {
@@ -120,7 +122,7 @@ function validateMultiImageInput(input: string | string[], to: import("@morphase
       return true;
     }
     const kind = inferResourceKind(item);
-    return !kind || !imageResourceKinds.includes(kind);
+    return !kind || !pdfCombinableImageKinds.includes(kind);
   });
 
   if (nonImageInputs.length > 0) {
@@ -128,8 +130,48 @@ function validateMultiImageInput(input: string | string[], to: import("@morphase
       code: "INVALID_INPUT",
       message: `Some input files are not images: ${nonImageInputs.join(", ")}`,
       suggestedFixes: [
-        "Only JPG, PNG, and WebP images can be combined into a PDF.",
+        "Only JPG and PNG images can be combined into a PDF.",
         "Remove non-image files from the input list."
+      ]
+    });
+  }
+}
+
+function isValidPageRange(value: string): boolean {
+  if (!pageRangePattern.test(value)) {
+    return false;
+  }
+
+  return value.split(",").every((segment) => {
+    const [startText, endText] = segment.split("-");
+    const start = Number(startText);
+    const end = endText ? Number(endText) : start;
+
+    return Number.isInteger(start) && Number.isInteger(end) && start >= 1 && end >= 1 && start <= end;
+  });
+}
+
+function validateRequestOptions(request: JobRequest): void {
+  const quality = request.options?.quality;
+  if (quality !== undefined && (typeof quality !== "string" || !validFetchQualities.has(quality))) {
+    throw createError({
+      code: "INVALID_INPUT",
+      message: `Invalid quality "${String(quality)}".`,
+      suggestedFixes: [
+        "Use one of: best, high, medium, or low.",
+        "Omit --quality to let morphase use the backend default."
+      ]
+    });
+  }
+
+  const format = request.options?.format;
+  if (format !== undefined && (typeof format !== "string" || !validTranscriptFormats.has(format))) {
+    throw createError({
+      code: "INVALID_INPUT",
+      message: `Invalid transcript format "${String(format)}".`,
+      suggestedFixes: [
+        "Use --format text or --format markdown.",
+        "Omit --format to use plain text."
       ]
     });
   }
@@ -156,12 +198,12 @@ function validateOperationInputs(request: JobRequest, input: string | string[]):
 
   if (request.operation === "split") {
     const pages = request.options?.pages;
-    if (typeof pages !== "string" || !pageRangePattern.test(pages)) {
+    if (typeof pages !== "string" || !isValidPageRange(pages)) {
       throw createError({
         code: "INVALID_INPUT",
         message: `Invalid page range "${String(pages ?? "")}".`,
         suggestedFixes: [
-          "Use comma-separated page numbers or ranges such as 1,3,5-7.",
+          "Use comma-separated page numbers or ascending ranges such as 1,3,5-7.",
           "Pass the range with `--pages`, for example `--pages 1-3,5`."
         ]
       });
@@ -207,6 +249,7 @@ export function normalizeRequest(
   ensureLocalInputsExist(normalizedInput);
   validateMultiImageInput(normalizedInput, request.to);
   validateOperationInputs(request, normalizedInput);
+  validateRequestOptions(request);
   let from: ResourceKind | undefined;
   if (request.from) {
     if (!resourceKinds.includes(request.from)) {

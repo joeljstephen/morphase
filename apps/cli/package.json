@@ -1,6 +1,6 @@
 {
   "name": "morphase",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Local-first open-source conversion router — convert, download, and transform files on your machine",
   "homepage": "https://github.com/joeljstephen/morphase#readme",

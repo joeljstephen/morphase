@@ -1,71 +1,106 @@
-# Contributing to Morphase
+# Contributing To Morphase
 
-Thanks for your interest in contributing. Morphase is a CLI-first, local-first conversion router, and it's happy to have external contributors.
+Morphase is a CLI-first, local-first router for file conversion, extraction, fetches, and document operations. Contributions are welcome, but correctness matters more than churn. Small, well-tested changes are much easier to review and release.
 
 ## Setup
+
+The repo is pinned to `pnpm@10.2.0`, so use Corepack locally:
 
 ```bash
 git clone https://github.com/joeljstephen/morphase.git
 cd morphase
-pnpm install
-pnpm build
-pnpm test
+corepack pnpm install
+corepack pnpm build
+corepack pnpm test
 ```
 
-You'll also want at least one backend installed on your system (FFmpeg, Pandoc, LibreOffice, etc.) to exercise real routes end-to-end. Run `pnpm dev -- doctor` to see what Morphase detects.
-
-## Development commands
+For end-to-end route checks, install at least one real backend such as `pandoc`, `ffmpeg`, or `libreoffice`, then run:
 
 ```bash
-pnpm dev          # Run the CLI in dev mode (tsx)
-pnpm build        # Build all packages (tsup)
-pnpm typecheck    # TypeScript check across all packages
-pnpm test         # Run the test suite (vitest)
-pnpm test:watch   # Run tests in watch mode
+corepack pnpm dev -- doctor
 ```
 
-## Architecture in one paragraph
+## Development Commands
 
-Morphase is a pnpm monorepo with a thin CLI and a shared engine. The engine owns routing, planning, execution, and diagnostics. Plugins isolate backend-specific behavior — each wraps one external tool (FFmpeg, Pandoc, LibreOffice, …) and declares what routes it can handle. Network-backed routes are explicit and opt-in.
+```bash
+corepack pnpm dev          # Run the CLI in dev mode (tsx)
+corepack pnpm build        # Build all workspace packages
+corepack pnpm typecheck    # TypeScript checks across the repo
+corepack pnpm test         # Run the Vitest suite
+corepack pnpm test:watch   # Watch mode
+```
+
+## Project Shape
+
+Morphase is a pnpm monorepo with:
+
+- a thin CLI in `apps/cli`
+- a shared engine in `packages/engine`
+- shared types and utilities in `packages/shared`
+- one plugin per backend in `packages/plugins/*`
+
+The engine owns routing, planning, execution, diagnostics, and runtime environment detection. Plugins describe backend capabilities, install/update strategies, and execution plans.
 
 See [docs/architecture.md](docs/architecture.md) for the full walkthrough.
 
-Key rules:
+## Working Rules
 
-- Engine logic stays in the engine package.
-- CLI code stays thin — no business logic, no routing decisions.
-- Plugins declare capabilities; the planner decides which one runs.
-- No mutating system state without explicit user intent.
+- Keep routing and planning logic in the engine, not in the CLI.
+- Keep backend-specific behavior inside plugins.
+- Prefer shared helpers over duplicated install-guidance logic.
+- Do not add guessed package-manager commands for environments the plugin cannot support confidently.
+- Keep docs and CLI output aligned when changing routes, install guidance, or user-facing wording.
+- Do not mutate the user's system without explicit intent. Package-manager delegation stays opt-in.
 
-## Pull requests
+## Tests And Verification
+
+If you change behavior, add or update tests that protect the real behavior you changed.
+
+Priority areas:
+
+- route normalization
+- planner selection and fallbacks
+- runtime environment detection
+- install/update guidance
+- CLI-facing error and doctor output
+
+Before opening a PR, run:
+
+```bash
+corepack pnpm build
+corepack pnpm typecheck
+corepack pnpm test
+```
+
+## Pull Requests
 
 1. Fork the repository.
-2. Create a feature branch.
-3. Make your changes, with tests if you're adding behavior.
-4. Run `pnpm build && pnpm typecheck && pnpm test`.
-5. Open a PR with a clear description of what changed and why.
+2. Create a focused branch.
+3. Make the change with tests and docs when needed.
+4. Run the full verification commands above.
+5. Open a PR that explains what changed, why it changed, and how you verified it.
 
-Small, focused PRs are much easier to review than large ones. If you're planning something big, open an issue or draft PR first to discuss the shape.
+If the change affects routes, backend install guidance, or plugin behavior, include that explicitly in the PR description.
 
-## Reporting issues
+## Reporting Bugs
 
-Please use GitHub Issues. Include:
+Please use GitHub Issues and include:
 
-- Morphase version (or commit SHA if running from source).
-- OS and package manager.
-- Steps to reproduce.
-- Expected vs actual behavior.
-- Output of `morphase doctor` if the issue involves a backend.
-- `--debug` output if the issue involves execution.
+- Morphase version or commit SHA
+- operating system and package manager
+- the exact command you ran
+- expected behavior and actual behavior
+- output of `morphase doctor` or `morphase backend verify <id>` when the issue involves a backend
+- `--debug` output when the issue involves execution planning or command failures
 
-## Adding a plugin
+## Adding Or Updating A Plugin
 
-See [docs/plugin-authoring.md](docs/plugin-authoring.md) for the plugin contract, SDK helpers, conventions, and guidance on whether a plugin belongs in the main repo or as a community plugin.
+See [docs/plugin-authoring.md](docs/plugin-authoring.md) for the plugin contract, shared helpers, install strategy model, and conventions for built-in plugins.
 
 ## Security
 
-Please do not file public issues for security vulnerabilities. See [SECURITY.md](SECURITY.md) for how to report them privately.
+Do not file public issues for security vulnerabilities. Follow [SECURITY.md](SECURITY.md) instead.
 
-## Code of conduct
+## Code Of Conduct
 
 All contributors are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).

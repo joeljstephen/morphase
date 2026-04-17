@@ -1,24 +1,24 @@
 # Morphase
 
-**Local-first, open-source conversion router for files and media.**
+**Local-first, open-source conversion router for files, media, PDFs, and web content.**
 
-Morphase is a CLI that converts documents, images, audio, video, and web pages using whichever tool on your machine is best for the job. You say what you want; Morphase figures out which backend to run.
+Morphase is a CLI that routes each request to the best backend already available on your machine. You ask for a conversion, extraction, fetch, or file operation; Morphase detects what is installed, chooses a healthy backend, and runs the right command.
 
-Nothing leaves your computer unless you explicitly fetch from the internet.
+Nothing leaves your machine unless you explicitly use a network-backed route such as `fetch`.
 
 ## Why Morphase
 
-Converting files usually means remembering which tool handles which format, installing the right one, and stitching them together when no single tool can do the job.
+Working with files usually means remembering which tool handles which format, installing it, and falling back to awkward manual pipelines when one tool is not enough.
 
-Morphase does that part for you:
+Morphase handles that coordination:
 
-- One command, any format it can route.
-- Picks the best installed backend automatically, with scoring and fallbacks.
-- Chains tools when no direct route exists (e.g. Markdown → DOCX → PDF).
-- Tells you exactly what's missing and how to install it.
-- No cloud, no telemetry, no accounts.
+- One CLI for documents, images, audio, video, PDFs, and URL-backed extraction.
+- Automatic backend selection based on route support, install status, health, and quality.
+- Curated multi-step pipelines when no direct backend can produce the result.
+- Environment-aware install guidance when a backend is missing.
+- No cloud service, no telemetry, no account requirement.
 
-Morphase itself stays small. The heavy lifting is done by external tools like FFmpeg, Pandoc, and LibreOffice, which you install separately through your system package manager. Morphase detects what you have at runtime and only offers routes you can actually run.
+Morphase itself stays small. Backends such as FFmpeg, Pandoc, LibreOffice, qpdf, Poppler, yt-dlp, and ImageMagick do the heavy lifting.
 
 ## Install
 
@@ -26,23 +26,30 @@ Morphase itself stays small. The heavy lifting is done by external tools like FF
 npm install -g morphase
 ```
 
-You'll also need at least one backend installed on your system (FFmpeg, Pandoc, LibreOffice, etc.) depending on which routes you want. Run `morphase doctor` to see what's detected.
+Morphase does not bundle backend tools. After installing the CLI, run:
 
-Running from source
+```bash
+morphase doctor
+```
+
+That shows which backends are already available and which routes need an extra install.
+
+### Running from source
+
+The repo is pinned to `pnpm@10.2.0`, so use Corepack:
 
 ```bash
 git clone https://github.com/joeljstephen/morphase.git
 cd morphase
-pnpm install
-pnpm build
+corepack pnpm install
+corepack pnpm build
 
-# Run the CLI
-pnpm dev -- --help
-# or, after building:
+# Dev mode
+corepack pnpm dev -- --help
+
+# Built CLI
 node apps/cli/dist/index.js --help
 ```
-
-
 
 ## Quick start
 
@@ -50,102 +57,117 @@ node apps/cli/dist/index.js --help
 # Interactive wizard
 morphase
 
-# Convert files
+# File conversions
 morphase convert presentation.pptx presentation.pdf
 morphase convert README.md README.docx
 morphase convert photo.heic photo.jpg
 
-# Images ↔ PDF
+# Image <-> PDF
 morphase convert photo.jpg photo.pdf
-morphase convert page1.jpg page2.jpg -o document.pdf
-morphase convert report.pdf report.png
+morphase convert page1.jpg page2.png -o document.pdf
+morphase convert report.pdf cover.png   # renders the first page
 
-# Extract content from files or web pages
+# Extraction
 morphase extract paper.pdf --to markdown
-morphase fetch https://example.com --to markdown
+morphase media ./podcast.mp3 --to transcript -o transcript.txt
 
-# Fetch media from URLs
-morphase fetch https://youtube.com/watch?v=... --to mp3
-morphase fetch https://youtube.com/watch?v=... --to transcript
+# URL-backed routes
+morphase fetch 'https://example.com/article' --to markdown
+morphase fetch 'https://youtube.com/watch?v=...' --to transcript
+morphase fetch 'https://youtube.com/watch?v=...' --to mp3
 
-# Compress
+# File operations
 morphase image compress photo.jpg
 morphase video compress movie.mov
-
-# PDF operations
 morphase pdf merge chapter1.pdf chapter2.pdf -o book.pdf
 morphase pdf split report.pdf --pages 1-3,5 -o excerpt.pdf
 morphase pdf optimize large.pdf -o smaller.pdf
+morphase pdf extract-images report.pdf -o report-images
 
-# See what Morphase would do without running it
+# Planning and diagnostics
 morphase explain deck.pptx --to pdf
-
-# Diagnose your setup
 morphase doctor
 morphase backend list
+morphase backend verify ffmpeg
 ```
 
-All conversion commands accept `--from`, `--backend`, `--offline`, `--debug`, `--dry-run`, and `--force`.
+Most conversion and operation commands accept `--from`, `--backend`, `--offline`, `--debug`, `--dry-run`, and `--force`.
+
+## Install guidance
+
+Morphase resolves install hints against the current runtime environment:
+
+- It detects the OS and, on Linux, the distro family.
+- It probes for supported package managers in environment-specific priority order.
+- It picks a matching install strategy for the backend when one exists.
+- If no compatible strategy matches, it falls back to honest manual guidance instead of printing a guessed command.
+
+Common package managers are the best-supported path: Homebrew, WinGet, Chocolatey, Scoop, apt, dnf, yum, pacman, zypper, nix, pip/pipx, npm, and `pkg` on BSD systems.
+
+Examples of exact commands Morphase can emit:
+
+| Environment | Example |
+| --- | --- |
+| macOS with Homebrew | `brew install ffmpeg` |
+| Windows with WinGet | `winget install -e --id Gyan.FFmpeg` |
+| Ubuntu / Debian | `sudo apt-get install ffmpeg` |
+| Fedora / RHEL | `sudo dnf install ffmpeg` |
+| Arch / Manjaro | `sudo pacman -S ffmpeg` |
+| openSUSE | `sudo zypper install ffmpeg` |
+| NixOS | `nix profile install nixpkgs#ffmpeg` |
+| FreeBSD | `sudo pkg install ffmpeg` |
+
+Useful commands:
+
+```bash
+morphase backend install ffmpeg
+morphase backend update pandoc
+```
+
+`--run` can execute a suggested package-manager command, but only when:
+
+- the hint is a structured package-manager command,
+- the terminal is interactive, and
+- `allowPackageManagerDelegation` is enabled in `~/.morphase/config.json`.
 
 ## How it works
 
+```text
+Your command -> Morphase engine -> selected plugin or pipeline -> external tool
 ```
-  Your command  →  Morphase engine  →  Best matching plugin  →  External tool
-```
 
-1. You describe what you want (e.g. convert a PPTX to PDF).
-2. The engine normalizes the request and figures out the route.
-3. The planner scores every plugin that can handle it, based on install status, health, quality, and your preferences.
-4. The best installed plugin builds an execution plan.
-5. The executor runs it, validates the output, and returns the result.
+1. The CLI parses a request.
+2. The engine normalizes paths and infers the route.
+3. The planner evaluates matching plugins for the current platform.
+4. Healthy installed backends are preferred; missing or unhealthy ones are explained instead of run blindly.
+5. If no direct backend can build a plan, Morphase tries a curated pipeline.
+6. The executor runs the plan, validates outputs, and reports the result.
 
-If no single plugin can handle the route, Morphase checks curated multi-step pipelines (e.g. Markdown → DOCX → PDF chains Pandoc into LibreOffice).
+See [docs/architecture.md](docs/architecture.md) for the engine walkthrough.
 
-See [docs/architecture.md](docs/architecture.md) for a deeper walkthrough.
+## Platform support
 
-## Supported platforms
+Morphase can run anywhere the required backend binaries are available. What varies by environment is the quality of automatic install guidance.
 
-Morphase runs anywhere the required backend binaries are installed. Install guidance is environment-aware: it detects your OS, distro, and package managers, then shows the right command when it can — and honest manual instructions when it can't.
+- **Best supported**: common package managers with explicit plugin strategies.
+- **Partial coverage**: Morphase recognizes the environment, but a given backend may only have manual guidance there.
+- **Manual fallback**: no detected package manager or no compatible strategy.
 
-
-| Environment         | Install hint example                        |
-| ------------------- | ------------------------------------------- |
-| macOS with Homebrew | `brew install ffmpeg`                       |
-| Windows with WinGet | `winget install Gyan.FFmpeg`                |
-| Ubuntu / Debian     | `sudo apt-get install ffmpeg`               |
-| Fedora / RHEL       | `sudo dnf install ffmpeg` or `sudo yum ...` |
-| Arch / Manjaro      | `sudo pacman -S ffmpeg`                     |
-| openSUSE            | `sudo zypper install ffmpeg`                |
-| NixOS               | `nix profile install nixpkgs#ffmpeg`            |
-| FreeBSD / OpenBSD   | `sudo pkg install ffmpeg`                       |
-
-
-**Support tiers:**
-
-- **Well-supported** — Morphase detects your package manager and the plugin has a strategy for it. You get the exact command.
-- **Best effort** — The plugin has strategies but not for your package manager. You get manual instructions instead of a wrong command.
-- **Manual only** — No compatible package manager detected. Clear manual guidance.
-
-Run `morphase doctor` to see what's detected and what's missing.
+That support model is intentional. Morphase prefers accurate partial coverage over guessed commands.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — how the engine, plugins, and pipelines fit together
-- [Route matrix](docs/route-matrix.md) — full list of stable and experimental routes
-- [Plugin authoring](docs/plugin-authoring.md) — contract and SDK guide for new plugins
-- [Contributing](CONTRIBUTING.md) — setup, PR flow, issue reporting
+- [Architecture](docs/architecture.md)
+- [Route matrix](docs/route-matrix.md)
+- [Plugin authoring](docs/plugin-authoring.md)
+- [Platform and package manager handling](docs/platform-and-package-manager-handling.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Privacy and legal
 
-Morphase is local-first by design: no cloud uploads, no telemetry, no accounts, no API keys. Network-backed routes (`fetch`, URL extraction) are clearly marked and opt-in.
+Morphase is local-first by design: no cloud uploads, no telemetry, no accounts, no API keys.
 
-Some plugins can download media from YouTube and other sites. Morphase does not host, cache, or redistribute any content. You are solely responsible for ensuring your use complies with the source platform's terms of service and applicable copyright law.
-
-## Support the project
-
-If Morphase saves you time, consider supporting development:
-
-
+Network-backed routes are explicit. If you use media-download or URL-fetching backends, you are responsible for complying with the source platform's terms and applicable law.
 
 ## License
 

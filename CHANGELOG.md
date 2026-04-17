@@ -4,6 +4,19 @@ All notable changes to Morphase will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+## [0.1.1] - 2026-04-17
+
+### Changed
+
+- Synchronized README and reference docs with the current route, plugin, and install-guidance model
+- Updated platform and package-manager documentation to match actual runtime detection and strategy resolution
+- Tightened route documentation around Poppler PDF rendering, manual fallbacks, and backend-selection behavior
+- Improved CLI install and update hints to show manual fallback guidance, notes, and documentation URLs when available
+- Included backend verification warnings in doctor output
+- Clarified CLI validation errors for image and video compression commands
+
 ## [0.1.0] - 2026-04-11
 
 ### Added

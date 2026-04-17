@@ -62,6 +62,15 @@ describe("runtime environment detection", () => {
     expect(managers).toEqual(["brew", "pip", "npm"]);
   });
 
+  it("detects nix on macOS after Homebrew", async () => {
+    const managers = await detectPackageManagers({
+      os: "macos",
+      commandRunner: fakeRunner(["brew", "nix", "pipx"])
+    });
+
+    expect(managers).toEqual(["brew", "nix", "pipx"]);
+  });
+
   it("prefers apt on Debian-family Linux", async () => {
     const managers = await detectPackageManagers({
       os: "linux",

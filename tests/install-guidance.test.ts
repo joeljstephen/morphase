@@ -14,6 +14,7 @@ import {
   type InstallStrategy,
   type RuntimeEnvironment
 } from "../packages/shared/src/index.js";
+import { formatDoctorReport as renderDoctorReport } from "../apps/cli/src/format.js";
 import { buildInstallStrategies, buildUpdateStrategies } from "../packages/plugins/src/helpers.js";
 
 const testStrategies: InstallStrategy[] = [
@@ -66,8 +67,8 @@ describe("renderCommand", () => {
   });
 
   it("renders winget install", () => {
-    expect(renderCommand({ file: "winget", args: ["install", "Gyan.FFmpeg"] })).toBe(
-      "winget install Gyan.FFmpeg"
+    expect(renderCommand({ file: "winget", args: ["install", "-e", "--id", "Gyan.FFmpeg"] })).toBe(
+      "winget install -e --id Gyan.FFmpeg"
     );
   });
 });
@@ -255,6 +256,26 @@ describe("CLI output for install hints", () => {
     const hints = resolveInstallHints(winOnlyStrategies, env);
     expect(hints[0]?.kind).toBe("manual");
     expect(hints[0]?.label).toBe("Install jpegoptim manually");
+  });
+
+  it("renders doctor warnings for installed backends", () => {
+    const output = renderDoctorReport({
+      id: "poppler",
+      name: "Poppler",
+      runtimeEnvironment: { os: "macos", packageManagers: ["brew"] },
+      installed: true,
+      version: "24.08.0",
+      minimumVersion: undefined,
+      versionSupported: true,
+      verified: true,
+      issues: [],
+      warnings: ["pdfimages was not found. PDF image extraction routes will not work."],
+      installHints: [],
+      updateHints: [],
+      commonProblems: []
+    });
+
+    expect(output).toContain("pdfimages was not found");
   });
 });
 
@@ -458,7 +479,8 @@ describe("buildInstallStrategies", () => {
 
     const winget = strategies.find((s) => s.kind === "package-manager" && s.manager === "winget");
     expect(winget).toMatchObject({
-      command: { file: "winget", args: ["install", "JohnMacFarlane.Pandoc"] }
+      command: { file: "winget", args: ["install", "-e", "--id", "JohnMacFarlane.Pandoc"] },
+      os: ["windows"]
     });
   });
 
@@ -501,7 +523,19 @@ describe("buildInstallStrategies", () => {
       command: { file: "sudo", args: ["zypper", "install", "pkg"] }
     });
     expect(strategies.find((s) => s.kind === "package-manager" && s.manager === "apk")).toMatchObject({
-      command: { file: "sudo", args: ["apk", "add", "pkg"] }
+      command: { file: "sudo", args: ["apk", "add", "pkg"] },
+      os: ["linux"]
+    });
+  });
+
+  it("scopes Nix strategies to macOS and Linux", () => {
+    const strategies = buildInstallStrategies(
+      { nix: "pandoc" },
+      { label: "Install manually" }
+    );
+
+    expect(strategies.find((s) => s.kind === "package-manager" && s.manager === "nix")).toMatchObject({
+      os: ["macos", "linux"]
     });
   });
 
@@ -610,7 +644,8 @@ describe("buildUpdateStrategies", () => {
 
     const winget = strategies.find((s) => s.kind === "package-manager" && s.manager === "winget");
     expect(winget).toMatchObject({
-      command: { file: "winget", args: ["upgrade", "pandoc"] }
+      command: { file: "winget", args: ["upgrade", "-e", "--id", "pandoc"] },
+      os: ["windows"]
     });
   });
 

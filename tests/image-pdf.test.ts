@@ -581,16 +581,13 @@ describe("normalize-request multi-image validation", () => {
     ]);
   });
 
-  it("accepts mixed jpg/png/webp inputs for pdf output", () => {
-    const normalized = normalizeRequest(
-      { input: ["a.jpg", "b.png", "c.webp"], to: "pdf", output: "combined.pdf" },
-      { offlineOnly: false }
-    );
-
-    expect(normalized.route.kind).toBe("conversion");
-    if (normalized.route.kind === "conversion") {
-      expect(normalized.route.to).toBe("pdf");
-    }
+  it("rejects mixed jpg/png/webp inputs for pdf output", () => {
+    expect(() =>
+      normalizeRequest(
+        { input: ["a.jpg", "b.png", "c.webp"], to: "pdf", output: "combined.pdf" },
+        { offlineOnly: false }
+      )
+    ).toThrow(/not images/);
   });
 
   it("rejects non-image inputs when converting multiple files to pdf", () => {

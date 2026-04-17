@@ -1,34 +1,23 @@
 # Plugin Authoring
 
-Morphase plugins isolate backend-specific behavior. A plugin describes what one external tool can do, how to detect it, and how to build a command line for a given request. The engine owns routing and execution; plugins just declare capabilities and produce plans.
+Morphase plugins wrap one backend tool at a time. A plugin says what a tool can do, how to detect it, how to verify it, how to install it, and how to build a runnable command for a normalized request.
 
 Builtin plugins live in `packages/plugins/<plugin>/src/index.ts`.
 
-## Official vs community plugins
+## What belongs in a plugin
 
-Not every plugin belongs in the main repo. As a rough guide:
+A plugin is a good fit for Morphase when it wraps a real backend with:
 
-**A plugin is a good fit for this repo if it:**
+- stable command-line behavior,
+- useful routes for the main CLI,
+- honest install guidance, and
+- predictable enough output to validate.
 
-- Wraps a widely available, stable, open-source tool (FFmpeg, Pandoc, ImageMagick, etc.).
-- Is installable through at least one common package manager or has a clear manual install path.
-- Covers a route the core Morphase audience will actually use.
-- Has predictable output and does not require service accounts, API keys, or network configuration to function.
-- Is reasonably behaved across macOS, Windows, and Linux, or clearly scopes itself to a subset.
-
-**A plugin is usually better as a community or out-of-tree plugin if it:**
-
-- Talks to a paid or proprietary service.
-- Requires user credentials, API keys, or OAuth.
-- Targets a niche format or workflow most users won't need.
-- Has heavy or platform-specific install requirements that can't be expressed as a few install strategies plus a clear manual fallback.
-- Is experimental or changes often.
-
-Community plugins will eventually be loadable out-of-tree via the plugin SDK. In the meantime, if you're unsure whether your plugin fits the main repo, open a discussion or draft PR and we'll figure it out together.
+Morphase is CLI-first and local-first. Prefer backends that work directly on the user's machine. Network-backed plugins are fine when the network requirement is explicit in the capability metadata.
 
 ## Plugin contract
 
-Every plugin implements the `MorphasePlugin` interface:
+Every plugin implements `MorphasePlugin`:
 
 ```ts
 interface MorphasePlugin {
@@ -51,172 +40,250 @@ interface MorphasePlugin {
 
 ### Required fields
 
-- **`id`** — Unique identifier used in routing, CLI flags (`--backend <id>`), and logs (e.g. `"ffmpeg"`).
-- **`name`** — Human-readable display name (e.g. `"FFmpeg"`).
-- **`priority`** — Default ordering hint (0–100). Higher wins when scores tie.
-- **`minimumVersion`** — Semver string. Lower detected versions get a score penalty.
-- **`optional`** — `true` for opt-in plugins (e.g. `ytdlp`, `whisper`, `summarize`).
-- **`commonProblems`** — Known issues surfaced by `morphase doctor`.
+- `id`: stable backend ID used by `--backend`, doctor output, and logs
+- `name`: human-readable label
+- `priority`: tie-break hint when candidates score similarly
+- `minimumVersion`: optional semver floor
+- `optional`: marks a backend as useful but not expected for every install
+- `commonProblems`: short backend caveats shown in diagnostics
 
-### Required methods
+## Capabilities
 
-#### `capabilities()`
-
-Returns the set of routes this plugin can handle:
+Capabilities describe what the backend can do, not how the CLI spells the route.
 
 ```ts
-{
-  kind: "conversion" | "transform" | "fetch" | "extract";
-  from: ResourceKind;
-  to?: ResourceKind;           // omitted for operations like compress / merge
-  operation?: string;          // for transform / extract operations
+type Capability = {
+  kind: "convert" | "extract" | "fetch" | "transform";
+  from: ResourceKind | null;
+  to: ResourceKind | null;
+  operation?: string;
   quality: "high" | "medium" | "best_effort";
   offline: boolean;
   platforms: Platform[];
-}
+  notes?: string[];
+};
 ```
 
-The planner uses these to match a route to candidate plugins via `Registry.findCandidates()`.
+Examples:
 
-#### `detect(platform)`
+- `pandoc` uses `kind: "convert"` for `markdown -> docx`
+- `trafilatura` uses `kind: "fetch"` for `url -> markdown`
+- `jpegoptim` uses `kind: "transform"` with `operation: "compress"`
 
-Checks whether the external tool is installed:
+Rules:
+
+- Keep capability claims narrow and accurate.
+- Use `quality` honestly.
+- Use `offline: false` when the backend requires network access.
+- Limit `platforms` to environments where the backend is actually supported.
+
+## Detection and verification
+
+### `detect(platform)`
+
+Detection answers: "is this tool present?"
+
+Typical result:
 
 ```ts
-{ installed: true; version?: string; command: string }
-| { installed: false; reason?: string }
+{ installed: true, version: "3.9.0", command: "pandoc" }
 ```
 
-Use `detectBinary()` from `packages/plugins/src/helpers.ts`, or `detectFirstAvailableCommand()` from `@morphase/plugin-sdk`, to probe for binaries.
-
-#### `verify(platform)`
-
-A deeper health check beyond detection:
+or
 
 ```ts
-{ ok: boolean; issues?: string[]; warnings?: string[] }
+{ installed: false, reason: "None of the expected commands were found: pandoc" }
 ```
 
-Good uses: checking delegate support (e.g. ImageMagick's HEIC/WebP delegates), dependency availability (e.g. yt-dlp needing ffmpeg for MP3), or version-specific bugs.
+### `verify(platform)`
 
-#### `getInstallStrategies()` / `getUpdateStrategies()`
+Verification answers: "is this installed tool ready for the routes it claims?"
 
-Plugins declare install strategies rather than one hardcoded command per OS. Morphase resolves these against the detected runtime environment and falls back to manual guidance when no compatible package manager matches.
+Use it for:
 
-**Use `buildInstallStrategies` and `buildUpdateStrategies`** from `packages/plugins/src/helpers.ts`. These take a package-name map and auto-generate `StructuredCommand` objects from templates:
+- minimum-version checks
+- delegate availability
+- companion tool requirements
+- route-specific warnings
+
+Examples in the builtin plugins:
+
+- `imagemagick` warns when HEIC or WebP delegate support is missing
+- `ytdlp` warns when `ffmpeg` is missing for MP3 extraction
+- `poppler` warns when only part of the toolchain is present
+
+Helpers:
+
+- `detectBinary(commands, versionArgs?)`
+- `verifyBinary(commands, args?, minimumVersion?)`
+- `detectFirstAvailableCommand(commands, versionArgs?)`
+
+## Install and update strategies
+
+Morphase resolves backend install guidance from structured strategy objects rather than hardcoded per-OS text.
+
+### Strategy types
 
 ```ts
-import { buildInstallStrategies, buildUpdateStrategies } from "../../src/helpers.js";
+type PackageManagerInstallStrategy = {
+  kind: "package-manager";
+  manager: PackageManager;
+  command: { file: string; args: string[] };
+  os?: SupportedOS[];
+  distros?: LinuxDistro[];
+  notes?: string[];
+};
 
+type ManualInstallStrategy = {
+  kind: "manual";
+  label: string;
+  os?: SupportedOS[];
+  distros?: LinuxDistro[];
+  notes?: string[];
+  url?: string;
+};
+```
+
+### Prefer the shared builders
+
+Builtin plugins should normally use:
+
+- `buildInstallStrategies(...)`
+- `buildUpdateStrategies(...)`
+
+Example:
+
+```ts
 const installStrategies = buildInstallStrategies(
   {
-    brew: "ffmpeg",
-    winget: "Gyan.FFmpeg",
-    choco: "ffmpeg",
-    scoop: "ffmpeg",
-    apt: "ffmpeg",
-    dnf: "ffmpeg",
-    yum: "ffmpeg",
-    pacman: "ffmpeg",
-    zypper: "ffmpeg",
-    nix: "ffmpeg"
+    brew: "pandoc",
+    winget: "JohnMacFarlane.Pandoc",
+    choco: "pandoc",
+    scoop: "pandoc",
+    apt: "pandoc",
+    dnf: "pandoc",
+    yum: "pandoc",
+    pacman: "pandoc",
+    zypper: "pandoc",
+    nix: "pandoc"
   },
   {
-    label: "Install FFmpeg manually",
-    url: "https://www.ffmpeg.org/download.html"
+    label: "Install Pandoc manually",
+    url: "https://pandoc.org/installing.html"
   }
 );
-
-const updateStrategies = buildUpdateStrategies(
-  {
-    brew: "ffmpeg",
-    apt: "ffmpeg",
-    /* ... same managers, nix is auto-excluded from updates */
-  },
-  { label: "Update FFmpeg manually" }
-);
 ```
 
-Key details:
+The builders provide:
 
-- Each key in the map is a `PackageManager` enum value. The value is the package name as a string.
-- Commands are generated as `StructuredCommand = { file: string; args: string[] }` — never as raw shell strings.
-- For `pip`, two OS-scoped strategies are auto-generated: `pip install X` for macOS/Linux and `py -m pip install X` for Windows.
-- `buildUpdateStrategies` automatically skips `nix` (since `nix profile upgrade` uses indices, not package names).
-- Every call appends a manual fallback strategy at the end.
-- If you need a custom `StructuredCommand` instead of a template, pass the object directly: `{ file: "custom", args: ["install", "x"] }`.
+- structured commands instead of shell strings
+- exact WinGet command shapes such as `winget install -e --id ...`
+- automatic OS scoping for manager families
+- Windows-specific `py -m pip ...` handling for `pip`
+- a required manual fallback appended automatically
 
-**Important:** Every plugin must include at least one manual fallback. The centralized builders handle this automatically, but if you construct strategies manually, always include a `manualInstallStrategy(...)`.
+Current default manager scoping from the shared helpers:
 
-#### `plan(request)`
+| Manager family | Default scope |
+| --- | --- |
+| `winget`, `choco`, `scoop` | Windows |
+| `apt`, `dnf`, `yum`, `pacman`, `zypper`, `apk` | Linux |
+| `nix` | macOS + Linux |
+| `pkg` | BSD |
 
-Builds an `ExecutionPlan` for the given request, or returns `null` if this plugin can't handle it:
+`brew`, `pip`, `pipx`, and `npm` are intentionally not globally OS-scoped because they can appear in more than one environment.
+
+### Authoring guidance
+
+- Prefer accurate partial coverage over guessed commands.
+- Omit a manager entirely if you cannot verify the package name.
+- Put backend-specific caveats in `notes`.
+- Always keep the manual fallback honest and useful.
+- Use `getUpdateStrategies()` when update behavior differs from install behavior.
+
+## Planning
+
+`plan(request)` receives a normalized `PlanRequest`:
 
 ```ts
-{
-  command: string;
-  args: string[];
-  env?: Record<string, string>;
-  cwd?: string;
-  tempDirs?: string[];
-  expectedOutputs?: string[];
-  outputMapping?: { source: string; target: string }[];
-  stdoutFile?: string;
-  timeoutMs?: number;
-  notes?: string[];
-  collectFromDir?: string;
-}
+type PlanRequest = {
+  input: string | string[];
+  from?: ResourceKind;
+  to?: ResourceKind;
+  operation?: string;
+  output?: string;
+  options: Record<string, unknown>;
+  platform: Platform;
+  offlineOnly: boolean;
+  route: Route;
+};
 ```
 
-Key fields:
+Return an `ExecutionPlan` or `null`.
 
-- **`command`** / **`args`** — Passed directly to `execa`. Never shell-concatenate.
-- **`outputMapping`** — For tools that generate output under their own filenames (e.g. LibreOffice). The executor renames those files to the user's expected path.
-- **`stdoutFile`** — Write stdout to a file instead of discarding it (used by `trafilatura`, `summarize`).
-- **`tempDirs`** — Temp directories the executor will clean up after execution.
-- **`collectFromDir`** — Directory to scan for output files (used by `poppler` for multi-page rendering).
+Return `null` when:
 
-#### `explain(request)`
+- the route is not actually supported by this plugin,
+- the request shape is invalid for the backend,
+- a required companion binary is missing, or
+- the backend cannot safely produce the requested output.
 
-Returns a human-readable explanation of why this plugin was chosen and what it will do. Shown by `morphase explain`.
+Do not throw for ordinary route mismatch.
 
-## Plugin SDK
+Useful `ExecutionPlan` fields:
 
-`@morphase/plugin-sdk` provides the minimum helpers to author a plugin:
+- `command`, `args`: passed directly to `execa`
+- `expectedOutputs`: files the executor should validate
+- `outputMapping`: rename backend-generated files to the user-requested path
+- `stdoutFile`: persist stdout to a file
+- `tempDirs`: directories the executor should clean up later
+- `collectFromDir`: gather outputs from a directory when filenames are backend-generated
 
-- **`definePlugin(plugin)`** — Identity function that enforces the `MorphasePlugin` type at compile time.
-- **`detectFirstAvailableCommand(commands, versionArgs)`** — Tries multiple command names and returns the first that responds.
-- **`packageManagerStrategy(manager, command, options?)`** — Creates a package-manager install strategy with a `StructuredCommand`.
-- **`manualInstallStrategy(label, options?)`** — Creates a manual install fallback strategy.
+## `explain(request)`
 
-## Shared plugin helpers
+`explain()` should describe what the backend will do in user-facing terms.
 
-`packages/plugins/src/helpers.ts` adds conveniences used by most builtin plugins:
+Good explanations:
 
-- **`buildInstallStrategies(packages, manual, sharedNotes?)`** — Generate install strategies from a package-name map.
-- **`buildUpdateStrategies(packages, manual, sharedNotes?)`** — Generate update strategies from a package-name map.
-- **`detectBinary(commands, versionArgs?)`** — `detectFirstAvailableCommand` plus semver parsing.
-- **`verifyBinary(commands, args?, minimumVersion?)`** — Binary verification with optional version check.
-- **`libreOfficeConvert(input, output, format)`** — Builds a LibreOffice execution plan with output mapping.
-- **`whisperGeneratedTranscript(input, output)`** — Builds a Whisper execution plan with output mapping.
+- mention the backend's role for that route
+- mention fidelity or caveats when relevant
+- stay short and concrete
 
-## Plugin rules
+Avoid vague text such as "this is the default backend" without saying why that matters.
 
-- Keep routing decisions out of the CLI.
-- Keep global routing decisions out of plugins — plugins declare capabilities; the planner decides.
-- Don't mutate system state without explicit user intent.
-- Keep backend-specific quirks, warnings, and install metadata inside the plugin.
-- Always pass commands and args as separate arrays — never shell-concatenate, to prevent injection.
-- Return `null` from `plan()` for requests this plugin can't handle; don't throw.
-- Always include a manual fallback in install strategies.
-- Use `buildInstallStrategies` / `buildUpdateStrategies` instead of manual strategy construction.
-- Prefer accurate partial coverage over guessed commands. If a tool isn't reliably available through a package manager, omit that manager rather than inventing a package name.
+## SDK and helper functions
+
+From `@morphase/plugin-sdk`:
+
+- `definePlugin(plugin)`
+- `detectFirstAvailableCommand(commands, versionArgs?)`
+- `packageManagerStrategy(manager, command, options?)`
+- `manualInstallStrategy(label, options?)`
+
+From `packages/plugins/src/helpers.ts`:
+
+- `buildInstallStrategies(...)`
+- `buildUpdateStrategies(...)`
+- `detectBinary(...)`
+- `verifyBinary(...)`
+- `libreOfficeConvert(...)`
+- `libreOfficeGeneratedPdf(...)`
+- `whisperGeneratedTranscript(...)`
+- `supportsImageMagickFormat(...)`
+
+## Authoring rules
+
+- Keep routing policy in the planner, not in the CLI or inside ad hoc plugin branching.
+- Keep commands structured as `file + args[]`; never shell-concatenate.
+- Do not mutate system state unless the user explicitly invoked an install/update flow.
+- Keep backend-specific warnings and install caveats inside the plugin.
+- Keep capability declarations narrower than your optimism, not broader.
 
 ## Example skeleton
 
 ```ts
 import { definePlugin } from "@morphase/plugin-sdk";
-import type { MorphasePlugin, Capability, PlanRequest, ExecutionPlan, Platform, DetectionResult, VerificationResult } from "@morphase/shared";
+import type { Capability, ExecutionPlan, MorphasePlugin, PlanRequest, VerificationResult } from "@morphase/shared";
 
 import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
 
@@ -227,28 +294,34 @@ const installStrategies = buildInstallStrategies(
 
 const updateStrategies = buildUpdateStrategies(
   { brew: "mytool", apt: "mytool", dnf: "mytool" },
-  { label: "Update MyTool manually" }
+  { label: "Update MyTool manually", url: "https://example.com/mytool" }
 );
 
-export const myPlugin: MorphasePlugin = definePlugin({
+export const myToolPlugin: MorphasePlugin = definePlugin({
   id: "mytool",
   name: "MyTool",
   priority: 80,
   minimumVersion: "1.0.0",
-  commonProblems: ["Some known issue"],
 
   capabilities(): Capability[] {
     return [
-      { kind: "conversion", from: "csv", to: "json", quality: "high", offline: true, platforms: ["macos", "windows", "linux"] },
+      {
+        kind: "convert",
+        from: "markdown",
+        to: "txt",
+        quality: "high",
+        offline: true,
+        platforms: ["macos", "windows", "linux"]
+      }
     ];
   },
 
-  async detect(platform: Platform): Promise<DetectionResult> {
+  async detect() {
     return detectBinary(["mytool"]);
   },
 
-  async verify(platform: Platform): Promise<VerificationResult> {
-    return verifyBinary(["mytool"]);
+  async verify(): Promise<VerificationResult> {
+    return verifyBinary(["mytool"], ["--version"], "1.0.0");
   },
 
   getInstallStrategies() {
@@ -260,26 +333,45 @@ export const myPlugin: MorphasePlugin = definePlugin({
   },
 
   async plan(request: PlanRequest): Promise<ExecutionPlan | null> {
-    if (request.route.kind !== "conversion") return null;
+    if (
+      request.route.kind !== "conversion" ||
+      request.route.from !== "markdown" ||
+      request.route.to !== "txt" ||
+      typeof request.input !== "string" ||
+      !request.output
+    ) {
+      return null;
+    }
+
     return {
       command: "mytool",
-      args: ["convert", String(request.input), "-o", request.output!],
-      expectedOutputs: [request.output!],
+      args: ["convert", request.input, "-o", request.output],
+      expectedOutputs: [request.output]
     };
   },
 
-  async explain(request: PlanRequest): Promise<string> {
-    return "Uses MyTool for high-quality CSV to JSON conversion.";
-  },
+  async explain() {
+    return "MyTool converts Markdown to plain text.";
+  }
 });
 ```
 
-## Adding a new plugin
+## Adding a builtin plugin
 
 1. Create `packages/plugins/<id>/src/index.ts`.
-2. Implement the `MorphasePlugin` interface using `definePlugin()`.
-3. Use `buildInstallStrategies` with accurate package names for supported managers and an honest manual fallback.
-4. Export the plugin from `packages/plugins/src/index.ts` and add it to the `builtinPlugins` array.
-5. Add tests in `tests/plugins.test.ts` that verify metadata and capabilities.
-6. Run `pnpm build && pnpm typecheck && pnpm test`.
-7. Open a PR. Include a brief note on which route(s) it adds and why the plugin belongs in the main repo (see the [Official vs community](#official-vs-community-plugins) section above).
+2. Implement `MorphasePlugin` with `definePlugin(...)`.
+3. Export it from `packages/plugins/src/index.ts` and add it to `builtinPlugins`.
+4. Add or update tests for:
+   - capabilities
+   - install/update strategies
+   - route planning
+   - any backend-specific invariants
+5. Run:
+
+```bash
+corepack pnpm build
+corepack pnpm typecheck
+corepack pnpm test
+```
+
+Out-of-tree plugins are not automatically loaded by the CLI today, so builtin additions should be deliberate and broadly useful.

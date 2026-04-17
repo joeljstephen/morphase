@@ -337,7 +337,11 @@ export class Planner {
       };
     }
 
-    for (const selected of ranked) {
+    const runnable = ranked.filter(
+      (candidate) => candidate.installed && candidate.verified && candidate.versionSupported
+    );
+
+    for (const selected of runnable) {
       if (!selected.installed) {
         continue;
       }
@@ -355,7 +359,10 @@ export class Planner {
       return {
         selectedPluginId: selected.pluginId,
         explanation: selected.explanation.join(" "),
-        warnings: backendIgnoredWarning ? [backendIgnoredWarning] : [],
+        warnings: [
+          ...(selected.verification.warnings ?? []),
+          ...(backendIgnoredWarning ? [backendIgnoredWarning] : [])
+        ],
         installNeeded: false,
         fallbacks: ranked
           .filter((candidate) => candidate.pluginId !== selected.pluginId)
@@ -380,6 +387,35 @@ export class Planner {
         }
         return pipelinePlan;
       }
+    }
+
+    const firstUnhealthyInstalled = ranked.find(
+      (candidate) => candidate.installed && (!candidate.verified || !candidate.versionSupported)
+    );
+    if (firstUnhealthyInstalled) {
+      const plugin = this.registry.get(firstUnhealthyInstalled.pluginId);
+      const issues = [...(firstUnhealthyInstalled.verification.issues ?? [])];
+
+      if (
+        !firstUnhealthyInstalled.versionSupported &&
+        firstUnhealthyInstalled.detection.version &&
+        plugin?.minimumVersion
+      ) {
+        issues.unshift(
+          `Installed version ${firstUnhealthyInstalled.detection.version} is below minimum required ${plugin.minimumVersion}.`
+        );
+      }
+
+      throw createError({
+        code: "BACKEND_UNHEALTHY",
+        message: `${plugin?.name ?? firstUnhealthyInstalled.pluginId} is installed but is not ready to handle ${routeKey(request.route)}.`,
+        backendId: firstUnhealthyInstalled.pluginId,
+        likelyCause: issues[0],
+        suggestedFixes: [
+          ...issues,
+          `Run \`morphase backend verify ${firstUnhealthyInstalled.pluginId}\` for more details.`
+        ]
+      });
     }
 
     throw createError({

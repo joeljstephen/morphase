@@ -620,7 +620,7 @@ describe("Planner", () => {
     expect(plan.selectedPluginId).toBe("ffmpeg-new");
   });
 
-  it("falls back to a below-minimum backend when no alternative exists", async () => {
+  it("fails when the only installed backend is below the minimum version", async () => {
     const registry = new PluginRegistry([
       createPlugin({
         id: "ffmpeg",
@@ -663,9 +663,12 @@ describe("Planner", () => {
       }
     };
 
-    const plan = await planner.plan(request);
-    expect(plan.selectedPluginId).toBe("ffmpeg");
-    expect(plan.explanation).toContain("below minimum");
+    await expect(planner.plan(request)).rejects.toMatchObject({
+      details: expect.objectContaining({
+        code: "BACKEND_UNHEALTHY",
+        backendId: "ffmpeg"
+      })
+    });
   });
 
   it("uses the image command shape for image compression equivalents", async () => {
@@ -754,5 +757,121 @@ describe("Planner", () => {
     });
 
     expect(plan.equivalentCommand).toBe("morphase pdf split report.pdf --pages 1-3 -o excerpt.pdf");
+  });
+
+  it("falls back to a healthy backend when the preferred backend fails verification", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "summarize",
+        name: "summarize",
+        priority: 70,
+        capabilities: () => [
+          {
+            kind: "extract",
+            from: "youtube-url",
+            to: "transcript",
+            quality: "high",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        verify: async () => ({ ok: false, issues: ["Node 22+ is required."], warnings: [] }),
+        plan: async () => ({
+          command: "summarize",
+          args: ["--extract"],
+          expectedOutputs: ["/tmp/transcript.txt"]
+        })
+      }),
+      createPlugin({
+        id: "ytdlp",
+        name: "yt-dlp",
+        priority: 60,
+        capabilities: () => [
+          {
+            kind: "fetch",
+            from: "youtube-url",
+            to: "transcript",
+            quality: "medium",
+            offline: false,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        plan: async () => ({
+          command: "yt-dlp",
+          args: ["--write-auto-subs"],
+          expectedOutputs: ["/tmp/transcript.txt"]
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+    const plan = await planner.plan({
+      input: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      from: "youtube-url",
+      to: "transcript",
+      output: "/tmp/transcript.txt",
+      options: {},
+      platform: "macos",
+      offlineOnly: false,
+      route: {
+        kind: "conversion",
+        from: "youtube-url",
+        to: "transcript"
+      }
+    });
+
+    expect(plan.selectedPluginId).toBe("ytdlp");
+  });
+
+  it("fails early when only installed candidates are unhealthy", async () => {
+    const registry = new PluginRegistry([
+      createPlugin({
+        id: "pandoc",
+        name: "Pandoc",
+        priority: 95,
+        minimumVersion: "3.0.0",
+        capabilities: () => [
+          {
+            kind: "convert",
+            from: "markdown",
+            to: "docx",
+            quality: "high",
+            offline: true,
+            platforms: ["macos", "windows", "linux"]
+          }
+        ],
+        detect: async () => ({ installed: true, version: "2.9.2", command: "pandoc" }),
+        verify: async () => ({ ok: true, issues: [], warnings: [] }),
+        plan: async () => ({
+          command: "pandoc",
+          args: ["notes.md", "-o", "notes.docx"],
+          expectedOutputs: ["notes.docx"]
+        })
+      })
+    ]);
+
+    const planner = new Planner(registry, baseConfig);
+
+    await expect(
+      planner.plan({
+        input: "notes.md",
+        from: "markdown",
+        to: "docx",
+        output: "notes.docx",
+        options: {},
+        platform: "macos",
+        offlineOnly: false,
+        route: {
+          kind: "conversion",
+          from: "markdown",
+          to: "docx"
+        }
+      })
+    ).rejects.toMatchObject({
+      details: expect.objectContaining({
+        code: "BACKEND_UNHEALTHY",
+        backendId: "pandoc"
+      })
+    });
   });
 });

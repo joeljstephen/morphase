@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { libreOfficePlugin, markitdownPlugin, pandocPlugin, trafilaturaPlugin, summarizePlugin, ytdlpPlugin } from "../packages/plugins/src/index.js";
+import { libreOfficePlugin, markitdownPlugin, pandocPlugin, popplerPlugin, trafilaturaPlugin, summarizePlugin, ytdlpPlugin } from "../packages/plugins/src/index.js";
 import { resolveInstallHints, type RuntimeEnvironment } from "../packages/shared/src/index.js";
 
 const macosEnvironment: RuntimeEnvironment = {
   os: "macos",
   packageManagers: ["brew", "pipx", "pip", "npm"]
+};
+
+const opensuseEnvironment: RuntimeEnvironment = {
+  os: "linux",
+  distro: "opensuse",
+  packageManagers: ["zypper", "pipx", "pip", "npm"]
 };
 
 describe("builtin plugins", () => {
@@ -88,6 +94,15 @@ describe("builtin plugins", () => {
     expect(plan?.command).toBe("markitdown");
     expect(plan?.args).toEqual(["report.pdf", "-o", "report.md"]);
     expect(plan?.expectedOutputs).toContain("report.md");
+  });
+
+  it("uses poppler-tools on openSUSE install hints for Poppler", () => {
+    const hints = resolveInstallHints(popplerPlugin.getInstallStrategies(), opensuseEnvironment);
+    expect(hints[0]).toMatchObject({
+      kind: "package-manager",
+      manager: "zypper",
+      command: "sudo zypper install poppler-tools"
+    });
   });
 });
 

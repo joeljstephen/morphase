@@ -84,6 +84,10 @@ export function formatDoctorReport(report: BackendDoctorReport): string {
     lines.push(`  ${yellow}⚠${reset} ${report.issues.join(" · ")}`);
   }
 
+  if (report.warnings.length) {
+    lines.push(`  ${yellow}⚠${reset} ${report.warnings.join(" · ")}`);
+  }
+
   return lines.join("\n");
 }
 

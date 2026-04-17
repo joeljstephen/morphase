@@ -73,7 +73,7 @@ function buildTopLevelHelp(): string {
       "  Flags: -o, --output <path>; --inputs <paths>",
       "",
       commandLine("extract", " <input>"),
-      "  Extracts a source into another representation such as text, markdown, JSON, or images.",
+      "  Extracts a source into another representation such as txt, markdown, transcript, or images.",
       "  Flags: --to <format> (required); -o, --output <path>",
       "",
       commandLine("fetch", " <url>"),
@@ -149,8 +149,8 @@ function buildTopLevelHelp(): string {
     formatHelpBlock([
       styleHelpCommand("morphase convert ./notes.docx ./notes.pdf"),
       styleHelpCommand("morphase extract ./paper.pdf --to markdown -o ./paper.md"),
-      styleHelpCommand("morphase fetch https://example.com/article --to markdown -o article.md"),
-      styleHelpCommand("morphase media ./podcast.mp3 --to text -o transcript.txt"),
+      styleHelpCommand("morphase fetch 'https://example.com/article' --to markdown -o article.md"),
+      styleHelpCommand("morphase media ./podcast.mp3 --to transcript -o transcript.txt"),
       styleHelpCommand("morphase pdf split ./report.pdf --pages 1-3,5 --output ./excerpt.pdf"),
       styleHelpCommand("morphase backend verify ffmpeg")
     ])
@@ -194,6 +194,23 @@ function printManualGuidance(hint: InstallHint | undefined) {
   if (hint.notes?.length) {
     for (const note of hint.notes) {
       console.log(`  ${note}`);
+    }
+  }
+}
+
+function printResolvedHint(label: string, hint: InstallHint | undefined) {
+  if (!hint) {
+    console.log(`${label}: no guidance available.`);
+    return;
+  }
+
+  console.log(`${label}: ${installHintSummary(hint)}`);
+  if (hint.url) {
+    console.log(`  Docs: ${hint.url}`);
+  }
+  if (hint.notes?.length) {
+    for (const note of hint.notes) {
+      console.log(`  Note: ${note}`);
     }
   }
 }
@@ -350,7 +367,11 @@ async function printBackendHints(
   }
 
   const command = primaryHintCommand(hint);
-  console.log(`${mode} hint for ${backendId}: ${installHintSummary(hint)}`);
+  printResolvedHint(`${mode} hint for ${backendId}`, hint);
+  if (hints[1]) {
+    console.log("");
+    printResolvedHint("manual fallback", hints[1]);
+  }
 
   if (!run || !command) {
     return;
@@ -515,7 +536,10 @@ async function main() {
   )
     .action(async (input, options) => {
       try {
-        const from = inferResourceKind(input) ?? "jpg";
+        const from = inferResourceKind(input);
+        if (!from || !["jpg", "png", "webp", "heic"].includes(from)) {
+          throw new Error("Image compression expects an image input such as .jpg, .png, .webp, or .heic.");
+        }
         await handleJob(
           engine,
           buildRequest(options, {
@@ -539,7 +563,10 @@ async function main() {
   )
     .action(async (input, options) => {
       try {
-        const from = inferResourceKind(input) ?? "mp4";
+        const from = inferResourceKind(input);
+        if (!from || !["mp4", "mov", "mkv"].includes(from)) {
+          throw new Error("Video compression expects a video input such as .mp4, .mov, or .mkv.");
+        }
         await handleJob(
           engine,
           buildRequest(options, {

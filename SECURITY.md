@@ -1,32 +1,40 @@
 # Security Policy
 
-## Reporting a vulnerability
+## Reporting A Vulnerability
 
-**Please do not file public GitHub issues for security vulnerabilities.**
+Do not file public GitHub issues for security vulnerabilities.
 
-To report a vulnerability, use one of these channels, in order of preference:
+Please report them through one of these private channels:
 
-1. **GitHub private vulnerability reporting** on this repository, if enabled. This is the preferred channel.
-2. **Contact the maintainers privately** through the channel documented on the repository (for example, a private security contact listed in the repo's README or GitHub profile).
+1. GitHub private vulnerability reporting for this repository, if enabled
+2. A private maintainer contact listed on the repository or maintainer profile
 
-Please include enough detail for us to reproduce the issue, along with any impact assessment you've done.
+Include enough detail to reproduce the issue and describe the expected impact.
 
 ## Scope
 
-Morphase is a CLI that shells out to external tools (FFmpeg, Pandoc, yt-dlp, LibreOffice, etc.). Vulnerabilities in those tools should be reported upstream to the respective projects.
+Morphase is a local CLI that plans work and shells out to external tools such as FFmpeg, Pandoc, LibreOffice, Poppler, yt-dlp, and ImageMagick. Vulnerabilities in those tools should usually be reported upstream to their own maintainers.
 
-In-scope for Morphase:
+Issues that are in scope for Morphase include:
 
-- Command injection through user-supplied input (file paths, URLs, CLI flags).
-- Path traversal in output path handling.
-- Arbitrary code execution through malicious config files.
-- Unsafe defaults that cause Morphase to run untrusted code without user consent.
+- command injection through user-controlled inputs
+- unsafe path handling or path traversal in output and temp-file flows
+- execution of unintended commands through install or update delegation
+- unsafe config handling
+- user-facing defaults that run system-changing commands without clear consent
 
-Out of scope:
+The codebase already tries to reduce those risks by:
 
-- Bugs in third-party binaries Morphase invokes.
-- Denial-of-service caused by very large or adversarial inputs to those external tools.
+- using structured commands instead of shell strings for delegated install or update actions
+- keeping package-manager delegation opt-in through `allowPackageManagerDelegation`
+- requiring an interactive terminal before delegated installs or updates can run
 
-## Supported versions
+Examples that are usually out of scope for Morphase itself:
 
-Only the latest release is supported. Please upgrade before reporting issues where possible.
+- vulnerabilities in third-party backends that Morphase invokes
+- unsupported input files that crash an external backend
+- content or download restrictions enforced by remote platforms
+
+## Supported Versions
+
+Please report issues against the latest release or current `main` when possible.

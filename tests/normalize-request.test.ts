@@ -219,4 +219,80 @@ describe("normalizeRequest", () => {
       )
     ).toThrow(/Invalid page range/);
   });
+
+  it("rejects reversed PDF split ranges before invoking qpdf", () => {
+    fs.writeFileSync(path.join(fixtureDir, "document.pdf"), "");
+
+    expect(() =>
+      normalizeRequest(
+        {
+          input: "document.pdf",
+          from: "pdf",
+          operation: "split",
+          output: "split.pdf",
+          options: { pages: "5-3" }
+        },
+        { offlineOnly: false }
+      )
+    ).toThrow(/Invalid page range/);
+  });
+
+  it("rejects page 0 in PDF split ranges", () => {
+    fs.writeFileSync(path.join(fixtureDir, "document.pdf"), "");
+
+    expect(() =>
+      normalizeRequest(
+        {
+          input: "document.pdf",
+          from: "pdf",
+          operation: "split",
+          output: "split.pdf",
+          options: { pages: "0,2" }
+        },
+        { offlineOnly: false }
+      )
+    ).toThrow(/Invalid page range/);
+  });
+
+  it("rejects unsupported multi-image PDF inputs such as WebP", () => {
+    fs.writeFileSync(path.join(fixtureDir, "image.webp"), "");
+    fs.writeFileSync(path.join(fixtureDir, "image.png"), "");
+
+    expect(() =>
+      normalizeRequest(
+        {
+          input: ["image.webp", "image.png"],
+          to: "pdf",
+          output: "combined.pdf"
+        },
+        { offlineOnly: false }
+      )
+    ).toThrow(/Some input files are not images/);
+  });
+
+  it("rejects invalid fetch quality values early", () => {
+    expect(() =>
+      normalizeRequest(
+        {
+          input: "https://example.com/video",
+          to: "mp4",
+          options: { quality: "ultra" }
+        },
+        { offlineOnly: false }
+      )
+    ).toThrow(/Invalid quality/);
+  });
+
+  it("rejects invalid transcript format values early", () => {
+    expect(() =>
+      normalizeRequest(
+        {
+          input: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          to: "transcript",
+          options: { format: "html" }
+        },
+        { offlineOnly: false }
+      )
+    ).toThrow(/Invalid transcript format/);
+  });
 });

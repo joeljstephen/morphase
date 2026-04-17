@@ -3,15 +3,15 @@ import path from "node:path";
 import { definePlugin } from "@morphase/plugin-sdk";
 import type { MorphasePlugin, PlanRequest, Platform, ResourceKind } from "@morphase/shared";
 
-import { buildInstallStrategies, buildUpdateStrategies, detectBinary, verifyBinary } from "../../src/helpers.js";
+import { buildInstallStrategies, buildUpdateStrategies, detectBinary } from "../../src/helpers.js";
 
 const installStrategies = buildInstallStrategies(
-  { brew: "poppler", winget: "oschwartz10612.Poppler", choco: "poppler", scoop: "poppler", apt: "poppler-utils", dnf: "poppler-utils", yum: "poppler-utils", pacman: "poppler", nix: "poppler_utils" },
+  { brew: "poppler", winget: "oschwartz10612.Poppler", choco: "poppler", scoop: "poppler", apt: "poppler-utils", dnf: "poppler-utils", yum: "poppler-utils", pacman: "poppler", zypper: "poppler-tools", nix: "poppler_utils" },
   { label: "Install Poppler manually", notes: ["Install Poppler utilities and ensure pdftocairo and pdfimages are available on PATH."] }
 );
 
 const updateStrategies = buildUpdateStrategies(
-  { brew: "poppler", winget: "oschwartz10612.Poppler", choco: "poppler", scoop: "poppler", apt: "poppler-utils", dnf: "poppler-utils", yum: "poppler-utils", pacman: "poppler" },
+  { brew: "poppler", winget: "oschwartz10612.Poppler", choco: "poppler", scoop: "poppler", apt: "poppler-utils", dnf: "poppler-utils", yum: "poppler-utils", pacman: "poppler", zypper: "poppler-tools" },
   { label: "Update Poppler manually", notes: ["Use your installation method to update Poppler and keep pdftocairo/pdfimages on PATH."] }
 );
 
@@ -29,9 +29,9 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
   name: "Poppler",
   priority: 100,
   commonProblems: [
-    "pdftocairo renders PDF pages as images. It does not extract embedded images.",
+    "pdftocairo renders only the first PDF page for the direct pdf->png/jpg routes.",
     "For extracting embedded images, use pdfimages (also part of Poppler).",
-    "Output file naming follows the pattern: prefix-1.png, prefix-2.png, etc."
+    "Extracted image file names are derived from the requested output prefix."
   ],
   capabilities() {
     const platforms: Platform[] = ["macos", "windows", "linux"];
@@ -43,7 +43,7 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
         quality: "high" as const,
         offline: true,
         platforms,
-        notes: ["Renders each PDF page as a separate PNG image at 150 DPI."]
+        notes: ["Renders the first PDF page as a PNG image at 150 DPI."]
       },
       {
         kind: "convert" as const,
@@ -52,7 +52,7 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
         quality: "high" as const,
         offline: true,
         platforms,
-        notes: ["Renders each PDF page as a separate JPEG image at 150 DPI."]
+        notes: ["Renders the first PDF page as a JPEG image at 150 DPI."]
       },
       {
         kind: "extract" as const,
@@ -67,10 +67,33 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
     ];
   },
   detect() {
-    return detectBinary(["pdftocairo"], ["-v"]);
+    return detectBinary(["pdftocairo", "pdfimages"], ["-v"]);
   },
   async verify() {
-    return verifyBinary(["pdftocairo"], ["-v"]);
+    const pdftocairo = await detectBinary(["pdftocairo"], ["-v"]);
+    const pdfimages = await detectBinary(["pdfimages"], ["-v"]);
+
+    if (!pdftocairo.installed && !pdfimages.installed) {
+      return {
+        ok: false,
+        warnings: [],
+        issues: ["Neither pdftocairo nor pdfimages was found on PATH."]
+      };
+    }
+
+    const warnings: string[] = [];
+    if (!pdftocairo.installed) {
+      warnings.push("pdftocairo was not found. PDF-to-image rendering routes will not work.");
+    }
+    if (!pdfimages.installed) {
+      warnings.push("pdfimages was not found. PDF image extraction routes will not work.");
+    }
+
+    return {
+      ok: true,
+      warnings,
+      issues: []
+    };
   },
   getInstallStrategies() {
     return installStrategies;
@@ -92,6 +115,9 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
       const { prefix, dir } = outputPrefixAndDir(request.output);
 
       if (to === "png") {
+        if (!(await detectBinary(["pdftocairo"], ["-v"])).installed) {
+          return null;
+        }
         return {
           command: "pdftocairo",
           args: ["-png", "-r", "150", "-singlefile", request.input, prefix],
@@ -101,6 +127,9 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
       }
 
       if (to === "jpg") {
+        if (!(await detectBinary(["pdftocairo"], ["-v"])).installed) {
+          return null;
+        }
         return {
           command: "pdftocairo",
           args: ["-jpeg", "-r", "150", "-singlefile", request.input, prefix],
@@ -113,6 +142,9 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
     }
 
     if (request.route.kind === "operation" && request.route.action === "extract-images") {
+      if (!(await detectBinary(["pdfimages"], ["-v"])).installed) {
+        return null;
+      }
       const { prefix, dir } = outputPrefixAndDir(request.output);
       return {
         command: "pdfimages",
@@ -125,7 +157,7 @@ export const popplerPlugin: MorphasePlugin = definePlugin({
   },
   async explain(request: PlanRequest) {
     if (request.route.kind === "conversion") {
-      return `Poppler pdftocairo is the preferred backend for rendering PDF pages as ${request.route.to === "png" ? "PNG" : "JPEG"} images. It produces one image file per page.`;
+      return `Poppler pdftocairo renders the first PDF page as a ${request.route.to === "png" ? "PNG" : "JPEG"} image.`;
     }
     return "Poppler pdfimages extracts embedded images from a PDF. This is different from rendering pages — it recovers the original images stored inside the document.";
   }
